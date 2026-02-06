@@ -15,6 +15,8 @@ pub mod predict;
 pub mod chain_of_thought;
 pub mod evaluate;
 pub mod knn;
+pub mod claude_lm;
+pub mod codex_lm;
 
 // Re-exports
 pub use error::{DspyError, Result};
@@ -30,3 +32,5 @@ pub use predict::{Predict, Trace};
 pub use chain_of_thought::ChainOfThought;
 pub use evaluate::{Evaluate, EvaluateConfig, EvaluationResult, Metric};
 pub use knn::{KNN, Embedder};
+pub use claude_lm::{ClaudeLM, ClaudeLMConfig};
+pub use codex_lm::{CodexLM, CodexLMConfig};
