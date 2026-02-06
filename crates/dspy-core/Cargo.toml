@@ -1,0 +1,21 @@
+[package]
+name = "dspy-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core primitives for DSPy Rust port — signatures, modules, predict, adapters, evaluate"
+
+[dependencies]
+tokio = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+indexmap = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }

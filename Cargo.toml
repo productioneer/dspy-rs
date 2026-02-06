@@ -1,0 +1,35 @@
+[workspace]
+members = [
+    "crates/dspy-core",
+    "crates/dspy-optimizers",
+    "crates/dspy-tpe",
+    "crates/dspy-propose",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+async-trait = "0.1"
+indexmap = { version = "2", features = ["serde"] }
+rand = "0.8"
+regex = "1"
+
+# Internal crates
+dspy-core = { path = "crates/dspy-core" }
+dspy-optimizers = { path = "crates/dspy-optimizers" }
+dspy-tpe = { path = "crates/dspy-tpe" }
+dspy-propose = { path = "crates/dspy-propose" }
+
+[profile.dev]
+opt-level = 0
+debug = true
