@@ -354,11 +354,19 @@ impl Signature {
 }
 
 /// Parse "name: description" or just "name"
+/// Python type names that should be treated as type annotations, not descriptions.
+/// In Python DSPy, "question: str" parses "str" as a type annotation; the description
+/// remains the default (empty). We match this by stripping type-only annotations.
+const PYTHON_TYPE_NAMES: &[&str] = &[
+    "str", "int", "float", "bool", "list", "dict", "tuple", "set",
+    "List", "Dict", "Tuple", "Set", "Optional", "Any",
+];
+
 fn parse_field_with_desc(s: &str) -> (String, Option<String>) {
     if let Some(idx) = s.find(':') {
         let name = s[..idx].trim().to_string();
         let desc = s[idx + 1..].trim().to_string();
-        if desc.is_empty() {
+        if desc.is_empty() || PYTHON_TYPE_NAMES.contains(&desc.as_str()) {
             (name, None)
         } else {
             (name, Some(desc))
@@ -462,6 +470,16 @@ mod tests {
         assert_eq!(q.description.as_deref(), Some("the question to answer"));
         let a = sig.fields().get("answer").unwrap();
         assert_eq!(a.description.as_deref(), Some("the final answer"));
+    }
+
+    #[test]
+    fn test_from_string_strips_python_type_annotations() {
+        // Python DSPy treats "str", "int", etc. as type annotations, not descriptions
+        let sig = Signature::from_string("question: str -> answer: str").unwrap();
+        let q = sig.fields().get("question").unwrap();
+        assert_eq!(q.description, None); // "str" stripped, not stored as description
+        let a = sig.fields().get("answer").unwrap();
+        assert_eq!(a.description, None);
     }
 
     #[test]

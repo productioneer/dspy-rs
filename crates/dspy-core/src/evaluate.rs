@@ -81,8 +81,9 @@ impl Evaluate {
         }
 
         let count = self.devset.len() as f64;
+        // Score as percentage (0-100) matching Python DSPy and TS port
         let avg_score = if count > 0.0 {
-            total_score / count
+            (total_score / count) * 100.0
         } else {
             0.0
         };
@@ -179,7 +180,7 @@ mod tests {
 
         let eval = Evaluate::new(devset, metric, EvaluateConfig::default());
         let result = eval.run(&predict).await.unwrap();
-        assert_eq!(result.score, 1.0);
+        assert_eq!(result.score, 100.0);
         assert_eq!(result.results.len(), 2);
         assert_eq!(result.errors, 0);
     }
@@ -214,7 +215,7 @@ mod tests {
 
         let eval = Evaluate::new(devset, metric, EvaluateConfig::default());
         let result = eval.run(&predict).await.unwrap();
-        assert_eq!(result.score, 0.5); // 1 correct out of 2
+        assert_eq!(result.score, 50.0); // 1 correct out of 2
     }
 
     #[tokio::test]
