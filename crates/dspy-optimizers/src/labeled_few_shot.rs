@@ -1,9 +1,10 @@
 //! LabeledFewShot — simplest optimizer: assigns k random labeled examples as demos.
+//! Uses a single seeded RNG (seed=0) shared across predictors so each predictor
+//! gets a different random sample (matching Python DSPy behavior).
 //! Python equivalent: dspy/teleprompt/vanilla.py
 
 use dspy_core::{Example, Module};
-use rand::seq::SliceRandom;
-use rand::SeedableRng;
+use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
 pub struct LabeledFewShot {
@@ -16,7 +17,7 @@ impl LabeledFewShot {
     }
 
     /// Compile: deep copies student, randomly samples k demos from trainset,
-    /// assigns them to every predictor.
+    /// assigns different samples to each predictor using a shared RNG.
     pub fn compile(
         &self,
         student: &dyn Module,
@@ -30,17 +31,30 @@ impl LabeledFewShot {
         }
 
         let count = self.k.min(trainset.len());
-        let demos: Vec<Example> = if sample {
-            let mut rng = StdRng::seed_from_u64(0);
-            let mut indices: Vec<usize> = (0..trainset.len()).collect();
-            indices.shuffle(&mut rng);
-            indices[..count].iter().map(|&i| trainset[i].clone()).collect()
-        } else {
-            trainset[..count].to_vec()
-        };
 
-        for (_, pred) in compiled.named_predictors_mut() {
-            pred.demos = demos.clone();
+        if sample {
+            // Single RNG shared across all predictors (Python: random.Random(0))
+            // Each predictor consumes from the same RNG, so they get different samples
+            let mut rng = StdRng::seed_from_u64(0);
+
+            for (_, pred) in compiled.named_predictors_mut() {
+                let mut indices: Vec<usize> = (0..trainset.len()).collect();
+                // Partial shuffle using gen_range for correct uniform distribution
+                for i in 0..count {
+                    let j = rng.gen_range(i..indices.len());
+                    indices.swap(i, j);
+                }
+                pred.demos = indices[..count]
+                    .iter()
+                    .map(|&i| trainset[i].clone())
+                    .collect();
+            }
+        } else {
+            // No sampling: first k examples in order
+            let demos: Vec<Example> = trainset[..count].to_vec();
+            for (_, pred) in compiled.named_predictors_mut() {
+                pred.demos = demos.clone();
+            }
         }
 
         compiled
@@ -51,6 +65,43 @@ impl LabeledFewShot {
 mod tests {
     use super::*;
     use dspy_core::{Example, Predict, Signature};
+
+    // Multi-predictor module for testing per-predictor sampling
+    struct TwoPredsModule {
+        pred1: Predict,
+        pred2: Predict,
+    }
+
+    impl TwoPredsModule {
+        fn new(sig: &str) -> Self {
+            Self {
+                pred1: Predict::new(Signature::from_string(sig).unwrap()),
+                pred2: Predict::new(Signature::from_string(sig).unwrap()),
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Module for TwoPredsModule {
+        async fn forward(&self, args: &Example) -> dspy_core::Result<dspy_core::Prediction> {
+            self.pred1.forward(args).await
+        }
+
+        fn named_predictors(&self) -> Vec<(&str, &Predict)> {
+            vec![("pred1", &self.pred1), ("pred2", &self.pred2)]
+        }
+
+        fn named_predictors_mut(&mut self) -> Vec<(&str, &mut Predict)> {
+            vec![("pred1", &mut self.pred1), ("pred2", &mut self.pred2)]
+        }
+
+        fn deep_copy(&self) -> Box<dyn Module> {
+            Box::new(Self {
+                pred1: self.pred1.clone(),
+                pred2: self.pred2.clone(),
+            })
+        }
+    }
 
     // Simple Module wrapper for testing
     struct SimpleModule {
@@ -192,5 +243,37 @@ mod tests {
 
         // Original student should be unmodified
         assert_eq!(student.named_predictors()[0].1.demos.len(), 0);
+    }
+
+    #[test]
+    fn test_labeled_few_shot_per_predictor_sampling() {
+        // With 2 predictors and a large enough trainset, each predictor should
+        // get different demos because the shared RNG is consumed sequentially.
+        let student = TwoPredsModule::new("q -> a");
+        let trainset: Vec<Example> = (0..20)
+            .map(|i| {
+                Example::new()
+                    .field("q", format!("Q{i}"))
+                    .field("a", format!("A{i}"))
+                    .with_inputs(&["q"])
+            })
+            .collect();
+
+        let optimizer = LabeledFewShot::new(3);
+        let compiled = optimizer.compile(&student, &trainset, true);
+
+        let preds = compiled.named_predictors();
+        assert_eq!(preds.len(), 2);
+        assert_eq!(preds[0].1.demos.len(), 3);
+        assert_eq!(preds[1].1.demos.len(), 3);
+
+        // Different predictors should get different demo sets
+        let demos1: Vec<String> = preds[0].1.demos.iter()
+            .filter_map(|d| d.get_str("q").map(String::from))
+            .collect();
+        let demos2: Vec<String> = preds[1].1.demos.iter()
+            .filter_map(|d| d.get_str("q").map(String::from))
+            .collect();
+        assert_ne!(demos1, demos2, "Different predictors should get different demos");
     }
 }

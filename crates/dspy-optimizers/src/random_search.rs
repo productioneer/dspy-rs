@@ -87,14 +87,19 @@ impl BootstrapFewShotWithRandomSearch {
                 });
                 bootstrap.compile(student, trainset, teacher).await?
             } else {
-                // Shuffled bootstrap with random size
+                // Two separate RNG instances, both seeded with the same value.
+                // RNG 1: for shuffling the trainset
+                // RNG 2: for selecting bootstrap size (first draw from fresh RNG)
+                // This matches Python DSPy where random.Random(seed).shuffle() and
+                // random.Random(seed).randint() are independent operations.
                 let seed = seed as u64;
-                let mut rng = StdRng::seed_from_u64(seed);
 
+                let mut shuffle_rng = StdRng::seed_from_u64(seed);
                 let mut shuffled = trainset.to_vec();
-                shuffled.shuffle(&mut rng);
+                shuffled.shuffle(&mut shuffle_rng);
 
-                let size = rng.gen_range(1..=self.config.max_bootstrapped_demos);
+                let mut size_rng = StdRng::seed_from_u64(seed);
+                let size = size_rng.gen_range(1..=self.config.max_bootstrapped_demos);
 
                 let bootstrap = BootstrapFewShot::new(BootstrapFewShotConfig {
                     metric: self.config.metric.clone(),

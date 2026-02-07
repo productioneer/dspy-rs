@@ -2,6 +2,9 @@
 //! Python equivalent: dspy/teleprompt/ensemble.py
 
 use dspy_core::{Example, Module, Prediction};
+use rand::seq::SliceRandom;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -43,7 +46,17 @@ impl EnsembleModule {
             ReduceFn::Custom(f) => f,
         };
 
+        // Random sample without replacement when size < programs.len()
+        // Matches Python DSPy's random.sample(programs, size)
         let programs = match config.size {
+            Some(size) if size < programs.len() => {
+                let mut rng = StdRng::seed_from_u64(0);
+                let mut programs_vec = programs;
+                // Shuffle then take first `size` — equivalent to random.sample()
+                programs_vec.shuffle(&mut rng);
+                programs_vec.truncate(size);
+                programs_vec
+            }
             Some(size) => programs.into_iter().take(size).collect(),
             None => programs,
         };
