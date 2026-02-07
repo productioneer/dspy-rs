@@ -12,7 +12,7 @@ use tokio::process::Command;
 use tokio::sync::Semaphore;
 
 use crate::error::{DspyError, Result};
-use crate::lm::{LMConfig, LMResponse, LM, Message, Usage};
+use crate::lm::{LMConfig, LMResponse, LM, Message};
 
 /// Configuration for ClaudeLM.
 #[derive(Debug, Clone)]
