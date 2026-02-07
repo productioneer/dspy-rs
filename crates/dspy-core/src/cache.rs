@@ -186,23 +186,34 @@ impl Cache {
     ) -> String {
         let ignored: &[&str] = ignored_args.unwrap_or(DEFAULT_IGNORED_ARGS);
 
-        let filtered = if let Some(obj) = request.as_object() {
-            let mut sorted: Vec<(&String, &serde_json::Value)> = obj
-                .iter()
-                .filter(|(k, _)| !ignored.contains(&k.as_str()))
-                .collect();
-            sorted.sort_by_key(|(k, _)| k.as_str());
-            let map: serde_json::Map<String, serde_json::Value> =
-                sorted.into_iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-            serde_json::Value::Object(map)
-        } else {
-            request.clone()
-        };
+        let filtered = self.sort_value_keys(request, ignored);
 
         let json = serde_json::to_string(&filtered).unwrap_or_default();
         let mut hasher = Sha256::new();
         hasher.update(json.as_bytes());
         format!("{:x}", hasher.finalize())
+    }
+
+    /// Recursively sort object keys for deterministic hashing.
+    fn sort_value_keys(&self, value: &serde_json::Value, ignored: &[&str]) -> serde_json::Value {
+        match value {
+            serde_json::Value::Object(obj) => {
+                let mut sorted: Vec<(&String, &serde_json::Value)> = obj
+                    .iter()
+                    .filter(|(k, _)| !ignored.contains(&k.as_str()))
+                    .collect();
+                sorted.sort_by_key(|(k, _)| k.as_str());
+                let map: serde_json::Map<String, serde_json::Value> = sorted
+                    .into_iter()
+                    .map(|(k, v)| (k.clone(), self.sort_value_keys(v, &[])))
+                    .collect();
+                serde_json::Value::Object(map)
+            }
+            serde_json::Value::Array(arr) => {
+                serde_json::Value::Array(arr.iter().map(|v| self.sort_value_keys(v, &[])).collect())
+            }
+            _ => value.clone(),
+        }
     }
 
     /// Check if a key exists in either cache tier.
