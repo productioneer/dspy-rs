@@ -17,6 +17,7 @@ indexmap = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
 base64 = { workspace = true }
+sha2 = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util", "macros"] }

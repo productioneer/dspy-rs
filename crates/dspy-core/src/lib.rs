@@ -37,6 +37,14 @@ pub mod rlm;
 pub mod finetune_types;
 pub mod provider;
 pub mod bootstrap_trace;
+pub mod cache;
+pub mod callback;
+pub mod retrieve;
+pub mod usage_tracker;
+pub mod parallelizer;
+pub mod dataset;
+pub mod embedder;
+pub mod streaming;
 
 // Re-exports
 pub use error::{DspyError, Result};
@@ -87,3 +95,15 @@ pub use bootstrap_trace::{
     FailedPrediction, TraceEntry, TraceData,
     BootstrapTraceOptions, bootstrap_trace_data,
 };
+pub use cache::{Cache, CacheConfig};
+pub use callback::{
+    Callback, ComponentType, set_global_callbacks, get_global_callbacks,
+    add_global_callback, clear_global_callbacks,
+    invoke_start_callbacks, invoke_end_callbacks,
+};
+pub use retrieve::{Retrieve, RetrieverModule, set_global_retriever, get_global_retriever};
+pub use usage_tracker::UsageTracker;
+pub use parallelizer::{ParallelExecutor, ParallelExecutorConfig};
+pub use dataset::{Dataset as DatasetBase, DatasetConfig};
+pub use embedder::{Embedder as EmbedderClient, EmbeddingFunction};
+pub use streaming::{StreamListener, StreamResponse, AdapterType as StreamAdapterType};
