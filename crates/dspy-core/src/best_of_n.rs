@@ -44,7 +44,7 @@ impl Module for BestOfN {
         let mut fails_remaining = self.fail_count;
 
         for idx in 0..self.n {
-            match self.module.forward(args).await {
+            match self.module.call(args).await {
                 Ok(pred) => {
                     let reward = (self.reward_fn)(args, &pred);
                     if reward > best_reward {

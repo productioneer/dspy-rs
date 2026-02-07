@@ -72,7 +72,7 @@ impl Evaluate {
         for example in &self.devset {
             let inputs = example.inputs();
 
-            match program.forward(&inputs).await {
+            match program.call(&inputs).await {
                 Ok(prediction) => {
                     let score = (self.metric)(example, &prediction);
                     total_score += score;

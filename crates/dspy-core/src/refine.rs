@@ -53,7 +53,7 @@ impl Module for Refine {
         // be wired up when the adapter system supports dynamic hint injection.
 
         for idx in 0..self.n {
-            match self.module.forward(args).await {
+            match self.module.call(args).await {
                 Ok(pred) => {
                     let reward = (self.reward_fn)(args, &pred);
 

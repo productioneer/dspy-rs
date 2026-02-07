@@ -62,7 +62,7 @@ pub async fn parallel_execute(
             DspyError::Other(format!("Semaphore error: {}", e))
         })?;
 
-        match module.forward(&inputs).await {
+        match module.call(&inputs).await {
             Ok(pred) => results.push(Some(pred)),
             Err(e) => {
                 error_count += 1;
