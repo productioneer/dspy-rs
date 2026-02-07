@@ -23,6 +23,7 @@ async-trait = "0.1"
 indexmap = { version = "2", features = ["serde"] }
 rand = "0.8"
 regex = "1"
+base64 = "0.22"
 
 # Internal crates
 dspy-core = { path = "crates/dspy-core" }

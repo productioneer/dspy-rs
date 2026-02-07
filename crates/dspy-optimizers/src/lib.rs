@@ -9,6 +9,7 @@
 //! - SIMBA: stochastic mini-batch ascent with softmax-weighted program selection
 //! - KNNFewShot: dynamic k-nearest neighbor demo selection at inference time
 //! - Ensemble: combines multiple programs via majority vote
+//! - GEPA: generalized evolutionary prompt adaptation via reflective mutation
 
 pub mod labeled_few_shot;
 pub mod bootstrap_few_shot;
@@ -18,6 +19,8 @@ pub mod ensemble;
 pub mod mipro_v2;
 pub mod simba;
 pub mod knn_fewshot;
+pub mod infer_rules;
+pub mod gepa;
 
 // Re-exports
 pub use labeled_few_shot::LabeledFewShot;
@@ -28,3 +31,5 @@ pub use ensemble::{EnsembleModule, EnsembleConfig, ReduceFn};
 pub use mipro_v2::{MIPROv2, MIPROv2Config, MIPROv2CompileOptions, AutoMode, MIPROv2Result};
 pub use simba::{SIMBA, SIMBAConfig, SIMBAResult};
 pub use knn_fewshot::{KNNFewShot, KNNFewShotConfig, KNNCompiledProgram};
+pub use infer_rules::{InferRules, InferRulesConfig};
+pub use gepa::{GEPA, GEPAConfig, GEPABudget, GEPAResult, GEPAFeedbackMetric, GEPAMetricResult, ScoreWithFeedback, CandidateSelection, ComponentSelection, ProposalFn, ReflectiveExample};

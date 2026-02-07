@@ -34,7 +34,7 @@ impl ChatAdapter {
     /// Format field description string matching Python's get_field_description_string().
     /// Each field: `N. \`name\` (type): desc`
     /// The desc is empty for simple str fields. Final result is trimmed (matching Python's .strip()).
-    fn format_field_description_string<'a>(
+    pub fn format_field_description_string<'a>(
         &self,
         fields: impl Iterator<Item = (&'a String, &'a crate::signature::FieldDef)>,
     ) -> String {
