@@ -272,12 +272,12 @@ impl Adapter for ChatAdapter {
             "signature": signature.instructions(),
             "demos": demos.len(),
         });
-        let messages = with_callbacks_sync(
+        let messages: Vec<Message> = with_callbacks_sync(
             ComponentType::AdapterFormat,
             "ChatAdapter",
             &format_inputs,
-            || self.format_messages(signature, inputs, demos),
-        );
+            || Ok::<_, DspyError>(self.format_messages(signature, inputs, demos)),
+        )?;
 
         let lm_inputs = serde_json::json!({
             "messages": messages.len(),

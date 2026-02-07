@@ -204,17 +204,18 @@ pub fn invoke_end_callbacks(
     }
 }
 
-/// Execute an async operation wrapped with start/end callbacks.
-/// Generates a unique call_id and fires start callbacks before, end callbacks after.
-pub async fn with_callbacks_async<T, F, Fut>(
+/// Execute an async operation that returns Result, wrapped with start/end callbacks.
+/// On success, passes serialized output to end callbacks. On error, passes exception message.
+pub async fn with_callbacks_async<T, E, F, Fut>(
     component_type: ComponentType,
     instance_type: &str,
     inputs: &serde_json::Value,
     func: F,
-) -> T
+) -> std::result::Result<T, E>
 where
     F: FnOnce() -> Fut,
-    Fut: std::future::Future<Output = T>,
+    Fut: std::future::Future<Output = std::result::Result<T, E>>,
+    E: std::fmt::Display,
 {
     let callbacks = get_global_callbacks();
     if callbacks.is_empty() {
@@ -223,20 +224,29 @@ where
 
     let call_id = format!("{:032x}", rand::random::<u128>());
     invoke_start_callbacks(component_type, &callbacks, &call_id, instance_type, inputs);
-    let result = func().await;
-    invoke_end_callbacks(component_type, &callbacks, &call_id, None, None);
-    result
+    match func().await {
+        Ok(value) => {
+            invoke_end_callbacks(component_type, &callbacks, &call_id, None, None);
+            Ok(value)
+        }
+        Err(e) => {
+            let err_msg = e.to_string();
+            invoke_end_callbacks(component_type, &callbacks, &call_id, None, Some(&err_msg));
+            Err(e)
+        }
+    }
 }
 
-/// Execute a sync operation wrapped with start/end callbacks.
-pub fn with_callbacks_sync<T, F>(
+/// Execute a sync operation that returns Result, wrapped with start/end callbacks.
+pub fn with_callbacks_sync<T, E, F>(
     component_type: ComponentType,
     instance_type: &str,
     inputs: &serde_json::Value,
     func: F,
-) -> T
+) -> std::result::Result<T, E>
 where
-    F: FnOnce() -> T,
+    F: FnOnce() -> std::result::Result<T, E>,
+    E: std::fmt::Display,
 {
     let callbacks = get_global_callbacks();
     if callbacks.is_empty() {
@@ -245,9 +255,17 @@ where
 
     let call_id = format!("{:032x}", rand::random::<u128>());
     invoke_start_callbacks(component_type, &callbacks, &call_id, instance_type, inputs);
-    let result = func();
-    invoke_end_callbacks(component_type, &callbacks, &call_id, None, None);
-    result
+    match func() {
+        Ok(value) => {
+            invoke_end_callbacks(component_type, &callbacks, &call_id, None, None);
+            Ok(value)
+        }
+        Err(e) => {
+            let err_msg = e.to_string();
+            invoke_end_callbacks(component_type, &callbacks, &call_id, None, Some(&err_msg));
+            Err(e)
+        }
+    }
 }
 
 #[cfg(test)]

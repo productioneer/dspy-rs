@@ -8,6 +8,7 @@
 //! Useful with reasoning models (for instance, o3-mini) that struggle with structured outputs.
 
 use crate::adapter::{Adapter, ChatAdapter};
+use crate::callback::{with_callbacks_sync, ComponentType};
 use crate::error::{DspyError, Result};
 use crate::example::Example;
 use crate::lm::{LMConfig, Message, LM};
@@ -156,7 +157,16 @@ impl Adapter for TwoStepAdapter {
         config: &LMConfig,
     ) -> Result<Vec<HashMap<String, Value>>> {
         // Phase 1: format natural-language messages and call main LM
-        let messages = self.format_first_pass_messages(signature, inputs, demos);
+        let format_inputs = serde_json::json!({
+            "signature": signature.instructions(),
+            "demos": demos.len(),
+        });
+        let messages: Vec<Message> = with_callbacks_sync(
+            ComponentType::AdapterFormat,
+            "TwoStepAdapter",
+            &format_inputs,
+            || Ok::<_, DspyError>(self.format_first_pass_messages(signature, inputs, demos)),
+        )?;
         let responses = lm.call(&messages, config).await?;
 
         if responses.is_empty() {

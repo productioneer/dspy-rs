@@ -6,6 +6,7 @@
 //! - Parses LM output using regex to extract XML tag content
 
 use crate::adapter::{Adapter, ChatAdapter};
+use crate::callback::{with_callbacks_async, with_callbacks_sync, ComponentType};
 use crate::error::{DspyError, Result};
 use crate::example::Example;
 use crate::lm::{LMConfig, Message, LM};
@@ -229,13 +230,41 @@ impl Adapter for XMLAdapter {
         inputs: &Example,
         config: &LMConfig,
     ) -> Result<Vec<HashMap<String, Value>>> {
-        let messages = self.format_messages(signature, inputs, demos);
+        let format_inputs = serde_json::json!({
+            "signature": signature.instructions(),
+            "demos": demos.len(),
+        });
+        let messages: Vec<Message> = with_callbacks_sync(
+            ComponentType::AdapterFormat,
+            "XMLAdapter",
+            &format_inputs,
+            || Ok::<_, DspyError>(self.format_messages(signature, inputs, demos)),
+        )?;
 
-        let responses = lm.call(&messages, config).await?;
+        let lm_inputs = serde_json::json!({
+            "messages": messages.len(),
+            "model": lm.model(),
+        });
+        let responses = with_callbacks_async(
+            ComponentType::Lm,
+            lm.model(),
+            &lm_inputs,
+            || lm.call(&messages, config),
+        )
+        .await?;
 
         let mut results = Vec::new();
         for resp in &responses {
-            let parsed = self.parse_output(&resp.text, signature)?;
+            let parse_inputs = serde_json::json!({
+                "output": resp.text,
+                "signature": signature.instructions(),
+            });
+            let parsed = with_callbacks_sync(
+                ComponentType::AdapterParse,
+                "XMLAdapter",
+                &parse_inputs,
+                || self.parse_output(&resp.text, signature),
+            )?;
             results.push(parsed);
         }
 
