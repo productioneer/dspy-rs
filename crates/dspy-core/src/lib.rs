@@ -46,6 +46,9 @@ pub mod dataset;
 pub mod embedder;
 pub mod streaming;
 
+#[cfg(test)]
+mod golden_trace_tests;
+
 // Re-exports
 pub use error::{DspyError, Result};
 pub use value::Value;
