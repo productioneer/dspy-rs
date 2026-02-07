@@ -41,6 +41,10 @@ impl Predict {
         }
     }
 
+    pub fn lm(&self) -> Option<Arc<dyn LM>> {
+        self.lm.clone()
+    }
+
     pub fn set_lm(&mut self, lm: Arc<dyn LM>) {
         self.lm = Some(lm);
     }

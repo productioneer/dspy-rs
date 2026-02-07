@@ -114,6 +114,51 @@ impl<T: Into<Value>> From<Vec<T>> for Value {
     }
 }
 
+impl From<serde_json::Value> for Value {
+    fn from(v: serde_json::Value) -> Self {
+        match v {
+            serde_json::Value::Null => Value::Null,
+            serde_json::Value::Bool(b) => Value::Bool(b),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    Value::Integer(i)
+                } else {
+                    Value::Float(n.as_f64().unwrap_or(0.0))
+                }
+            }
+            serde_json::Value::String(s) => Value::String(s),
+            serde_json::Value::Array(arr) => {
+                Value::List(arr.into_iter().map(Value::from).collect())
+            }
+            serde_json::Value::Object(map) => {
+                Value::Object(map.into_iter().map(|(k, v)| (k, Value::from(v))).collect())
+            }
+        }
+    }
+}
+
+impl From<Value> for serde_json::Value {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::Null => serde_json::Value::Null,
+            Value::Bool(b) => serde_json::Value::Bool(b),
+            Value::Integer(i) => serde_json::json!(i),
+            Value::Float(f) => serde_json::json!(f),
+            Value::String(s) => serde_json::Value::String(s),
+            Value::List(arr) => {
+                serde_json::Value::Array(arr.into_iter().map(serde_json::Value::from).collect())
+            }
+            Value::Object(map) => {
+                serde_json::Value::Object(
+                    map.into_iter()
+                        .map(|(k, v)| (k, serde_json::Value::from(v)))
+                        .collect(),
+                )
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

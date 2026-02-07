@@ -28,6 +28,15 @@ pub mod evaluate;
 pub mod knn;
 pub mod claude_lm;
 pub mod codex_lm;
+pub mod interpreter;
+pub mod mock_interpreter;
+pub mod repl_types;
+pub mod program_of_thought;
+pub mod code_act;
+pub mod rlm;
+pub mod finetune_types;
+pub mod provider;
+pub mod bootstrap_trace;
 
 // Re-exports
 pub use error::{DspyError, Result};
@@ -62,3 +71,19 @@ pub use evaluate::{Evaluate, EvaluateConfig, EvaluationResult, Metric};
 pub use knn::{KNN, Embedder};
 pub use claude_lm::{ClaudeLM, ClaudeLMConfig};
 pub use codex_lm::{CodexLM, CodexLMConfig};
+pub use interpreter::{CodeInterpreter, CodeInterpreterError, ExecutionResult, FinalOutput, InterpreterTool, OutputFieldDef};
+pub use mock_interpreter::{MockInterpreter, MockResponse, MockErrorType};
+pub use repl_types::{REPLVariable, REPLEntry, REPLHistory, create_repl_variable, format_repl_variable};
+pub use program_of_thought::ProgramOfThought;
+pub use code_act::CodeAct;
+pub use rlm::RLM;
+pub use finetune_types::{
+    TrainingStatus, TrainDataFormat, TrainingMessage,
+    GRPOChatData, GRPOGroup, GRPOStatus,
+    infer_data_format, validate_data_format,
+};
+pub use provider::{TrainingJob, ReinforceJob, Provider};
+pub use bootstrap_trace::{
+    FailedPrediction, TraceEntry, TraceData,
+    BootstrapTraceOptions, bootstrap_trace_data,
+};
