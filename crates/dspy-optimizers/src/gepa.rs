@@ -1097,7 +1097,7 @@ impl GEPA {
 
         for example in batch {
             let inputs = example.inputs();
-            match program.forward(&inputs).await {
+            match program.call(&inputs).await {
                 Ok(prediction) => {
                     let score_result = (self.config.metric)(example, &prediction);
                     let score = score_result.score();

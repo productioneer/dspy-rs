@@ -96,7 +96,7 @@ impl MultiChainComparison {
             );
         }
 
-        self.predict.forward(&inputs).await
+        self.predict.call(&inputs).await
     }
 
     pub fn predict(&self) -> &Predict {
@@ -110,6 +110,10 @@ impl MultiChainComparison {
 
 #[async_trait]
 impl crate::module_trait::Module for MultiChainComparison {
+    fn module_type_name(&self) -> &str {
+        "MultiChainComparison"
+    }
+
     async fn forward(&self, _args: &Example) -> Result<Prediction> {
         // When called via Module trait, expect completions in args
         // This is a simplified path — the main API is forward_with_completions

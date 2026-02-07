@@ -284,7 +284,7 @@ impl RLM {
             .field("repl_history", repl_history_str)
             .field("iteration", iteration_str);
 
-        let action = self.generate_action.forward(&action_args).await?;
+        let action = self.generate_action.call(&action_args).await?;
 
         if self.verbose {
             eprintln!(
@@ -401,7 +401,7 @@ impl RLM {
             .field("variables_info", variables_info)
             .field("repl_history", repl_history_str);
 
-        let extract_pred = self.extract.forward(&extract_args).await?;
+        let extract_pred = self.extract.call(&extract_args).await?;
 
         let mut outputs: HashMap<String, crate::value::Value> = HashMap::new();
         for name in output_field_names {
@@ -428,6 +428,10 @@ enum IterationResult {
 
 #[async_trait]
 impl Module for RLM {
+    fn module_type_name(&self) -> &str {
+        "RLM"
+    }
+
     async fn forward(&self, args: &Example) -> Result<Prediction> {
         self.validate_inputs(args)?;
 

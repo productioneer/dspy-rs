@@ -245,6 +245,10 @@ impl ReAct {
 
 #[async_trait]
 impl Module for ReAct {
+    fn module_type_name(&self) -> &str {
+        "ReAct"
+    }
+
     async fn forward(&self, args: &Example) -> Result<Prediction> {
         let mut trajectory: HashMap<String, String> = HashMap::new();
 
@@ -264,7 +268,7 @@ impl Module for ReAct {
             let mut forward_args = input_args.clone();
             forward_args.set("trajectory", Self::format_trajectory(&trajectory));
 
-            let pred = match self.react_predict.forward(&forward_args).await {
+            let pred = match self.react_predict.call(&forward_args).await {
                 Ok(p) => p,
                 Err(e) => {
                     eprintln!(
@@ -330,7 +334,7 @@ impl Module for ReAct {
 
         let extract: Prediction = self
             .extract_predict
-            .forward(&extract_args)
+            .call(&extract_args)
             .await?;
 
         // Build result with trajectory included

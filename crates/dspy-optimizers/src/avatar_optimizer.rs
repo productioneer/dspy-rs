@@ -105,7 +105,7 @@ impl AvatarOptimizer {
         actor: &dyn Module,
         example: &Example,
     ) -> EvalResult {
-        match actor.forward(example).await {
+        match actor.call(example).await {
             Ok(prediction) => {
                 let score = (self.config.metric)(example, &prediction);
                 EvalResult {
@@ -261,7 +261,7 @@ impl AvatarOptimizer {
                 .field("pos_input_with_metrics", pos_summary.as_str())
                 .field("neg_input_with_metrics", neg_summary.as_str());
 
-            let feedback_result = self.comparator.forward(&feedback_input).await;
+            let feedback_result = self.comparator.call(&feedback_input).await;
             let feedback = feedback_result
                 .as_ref()
                 .ok()
@@ -273,7 +273,7 @@ impl AvatarOptimizer {
                 .field("previous_instruction", current_instruction.as_str())
                 .field("feedback", feedback.as_str());
 
-            let instr_result = self.feedback_instruction.forward(&instr_input).await;
+            let instr_result = self.feedback_instruction.call(&instr_input).await;
             let new_instruction = instr_result
                 .as_ref()
                 .ok()

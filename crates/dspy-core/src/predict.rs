@@ -125,6 +125,10 @@ impl Predict {
 
 #[async_trait]
 impl crate::module_trait::Module for Predict {
+    fn module_type_name(&self) -> &str {
+        "Predict"
+    }
+
     async fn forward(&self, args: &Example) -> Result<Prediction> {
         let lm = self.effective_lm()?;
         let adapter = self.effective_adapter();

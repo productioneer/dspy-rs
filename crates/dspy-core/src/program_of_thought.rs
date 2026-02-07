@@ -137,6 +137,10 @@ impl ProgramOfThought {
 
 #[async_trait]
 impl Module for ProgramOfThought {
+    fn module_type_name(&self) -> &str {
+        "ProgramOfThought"
+    }
+
     async fn forward(&self, args: &Example) -> Result<Prediction> {
         let mut input_kwargs = Example::new();
         for name in &self.input_field_names {
@@ -146,7 +150,7 @@ impl Module for ProgramOfThought {
         }
 
         // Initial code generation
-        let code_data = self.code_generate.forward(&input_kwargs).await?;
+        let code_data = self.code_generate.call(&input_kwargs).await?;
         let (mut code, mut error) = Self::parse_code(&code_data);
 
         let mut output: Option<String> = None;
@@ -172,7 +176,7 @@ impl Module for ProgramOfThought {
             regen_args = regen_args.field("previous_code", code.clone());
             regen_args = regen_args.field("error", error.unwrap_or_default());
 
-            let regen_data = self.code_regenerate.forward(&regen_args).await?;
+            let regen_data = self.code_regenerate.call(&regen_args).await?;
             let (new_code, new_error) = Self::parse_code(&regen_data);
             code = new_code;
             error = new_error;
@@ -190,7 +194,7 @@ impl Module for ProgramOfThought {
         answer_args = answer_args.field("final_generated_code", code);
         answer_args = answer_args.field("code_output", output.unwrap_or_default());
 
-        let output_result = self.generate_output.forward(&answer_args).await?;
+        let output_result = self.generate_output.call(&answer_args).await?;
         let mut interp = self.interpreter.lock().await;
         let _ = interp.shutdown().await;
         Ok(output_result)

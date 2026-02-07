@@ -122,12 +122,16 @@ impl KNNCompiledProgram {
             .await?;
 
         // Forward through compiled program
-        compiled.forward(input).await
+        compiled.call(input).await
     }
 }
 
 #[async_trait::async_trait]
 impl Module for KNNCompiledProgram {
+    fn module_type_name(&self) -> &str {
+        "KNNCompiledProgram"
+    }
+
     async fn forward(&self, input: &Example) -> Result<Prediction, dspy_core::DspyError> {
         self.call(input).await
     }

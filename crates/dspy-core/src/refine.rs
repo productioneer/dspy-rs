@@ -41,6 +41,10 @@ impl Refine {
 
 #[async_trait]
 impl Module for Refine {
+    fn module_type_name(&self) -> &str {
+        "Refine"
+    }
+
     async fn forward(&self, args: &Example) -> Result<Prediction> {
         let mut best_pred: Option<Prediction> = None;
         let mut best_reward = f64::NEG_INFINITY;

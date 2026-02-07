@@ -322,7 +322,7 @@ impl GroundedProposer {
         let key_refs: Vec<&str> = input_keys.iter().map(|s| s.as_str()).collect();
         input = input.with_inputs(&key_refs);
 
-        match generator.forward(&input).await {
+        match generator.call(&input).await {
             Ok(prediction) => {
                 prediction
                     .get_str("proposed_instruction")

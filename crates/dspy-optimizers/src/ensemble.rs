@@ -71,10 +71,14 @@ impl EnsembleModule {
 
 #[async_trait::async_trait]
 impl Module for EnsembleModule {
+    fn module_type_name(&self) -> &str {
+        "EnsembleModule"
+    }
+
     async fn forward(&self, args: &Example) -> dspy_core::Result<Prediction> {
         let mut predictions = Vec::new();
         for program in &self.programs {
-            match program.forward(args).await {
+            match program.call(args).await {
                 Ok(pred) => predictions.push(pred),
                 Err(_) => continue, // Skip failed programs
             }

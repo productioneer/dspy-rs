@@ -158,7 +158,7 @@ impl InferRules {
             let examples_text = self.format_examples(&demos, signature);
             let input = Example::new().field("examples_text", examples_text.as_str());
 
-            match rules_program.forward(&input).await {
+            match rules_program.call(&input).await {
                 Ok(prediction) => {
                     let rules = prediction
                         .get_str("natural_language_rules")
@@ -289,8 +289,12 @@ impl RulesInductionProgram {
 
 #[async_trait]
 impl Module for RulesInductionProgram {
+    fn module_type_name(&self) -> &str {
+        "RulesInductionProgram"
+    }
+
     async fn forward(&self, args: &Example) -> Result<Prediction> {
-        self.rules_induction.forward(args).await
+        self.rules_induction.call(args).await
     }
 
     fn named_predictors(&self) -> Vec<(&str, &Predict)> {

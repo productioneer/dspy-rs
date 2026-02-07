@@ -216,6 +216,7 @@ where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = std::result::Result<T, E>>,
     E: std::fmt::Display,
+    T: serde::Serialize,
 {
     let callbacks = get_global_callbacks();
     if callbacks.is_empty() {
@@ -226,7 +227,8 @@ where
     invoke_start_callbacks(component_type, &callbacks, &call_id, instance_type, inputs);
     match func().await {
         Ok(value) => {
-            invoke_end_callbacks(component_type, &callbacks, &call_id, None, None);
+            let output = serde_json::to_value(&value).ok();
+            invoke_end_callbacks(component_type, &callbacks, &call_id, output.as_ref(), None);
             Ok(value)
         }
         Err(e) => {
@@ -247,6 +249,7 @@ pub fn with_callbacks_sync<T, E, F>(
 where
     F: FnOnce() -> std::result::Result<T, E>,
     E: std::fmt::Display,
+    T: serde::Serialize,
 {
     let callbacks = get_global_callbacks();
     if callbacks.is_empty() {
@@ -257,7 +260,8 @@ where
     invoke_start_callbacks(component_type, &callbacks, &call_id, instance_type, inputs);
     match func() {
         Ok(value) => {
-            invoke_end_callbacks(component_type, &callbacks, &call_id, None, None);
+            let output = serde_json::to_value(&value).ok();
+            invoke_end_callbacks(component_type, &callbacks, &call_id, output.as_ref(), None);
             Ok(value)
         }
         Err(e) => {

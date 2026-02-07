@@ -165,7 +165,7 @@ impl BootstrapFewShot {
         metric: &Metric,
     ) -> dspy_core::Result<bool> {
         let inputs = example.inputs();
-        let prediction = teacher.forward(&inputs).await?;
+        let prediction = teacher.call(&inputs).await?;
 
         let score = metric(example, &prediction);
         let success = match self.config.metric_threshold {

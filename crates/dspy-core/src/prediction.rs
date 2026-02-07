@@ -4,10 +4,11 @@
 use crate::example::Example;
 use crate::signature::Signature;
 use crate::value::Value;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::ops::Deref;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Prediction {
     pub example: Example,
     completions: HashMap<String, Vec<Value>>,

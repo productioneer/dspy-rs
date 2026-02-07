@@ -28,6 +28,7 @@ impl Default for EvaluateConfig {
     }
 }
 
+#[derive(serde::Serialize)]
 pub struct EvaluationResult {
     pub score: f64,
     pub results: Vec<(Example, Prediction, f64)>,

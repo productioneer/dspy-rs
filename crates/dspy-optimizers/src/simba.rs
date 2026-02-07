@@ -457,7 +457,7 @@ impl SIMBA {
     /// Evaluate a single program on one example
     async fn evaluate_single(&self, program: &dyn Module, example: &Example) -> ExecutionResult {
         let inputs = example.inputs();
-        match program.forward(&inputs).await {
+        match program.call(&inputs).await {
             Ok(prediction) => {
                 let score = (self.config.metric)(example, &prediction);
                 ExecutionResult {
@@ -570,7 +570,7 @@ impl SIMBA {
             .field("example_input", example_str.as_str())
             .with_inputs(&["good_score", "bad_score", "example_input"]);
 
-        match generator.forward(&input).await {
+        match generator.call(&input).await {
             Ok(prediction) => prediction
                 .get_str("improvement_rule")
                 .unwrap_or("")

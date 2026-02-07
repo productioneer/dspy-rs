@@ -14,13 +14,19 @@ use std::sync::Arc;
 pub trait Module: Send + Sync {
     async fn forward(&self, args: &Example) -> Result<Prediction>;
 
+    /// Returns the type name for this module (used in callback reporting).
+    /// Override in implementations to report the actual struct name.
+    fn module_type_name(&self) -> &str {
+        "Module"
+    }
+
     /// Call this module with callbacks. This is the standard entry point
     /// (equivalent to Python's Module.__call__).
     async fn call(&self, args: &Example) -> Result<Prediction> {
         let inputs = serde_json::to_value(args).unwrap_or_default();
         with_callbacks_async(
             ComponentType::Module,
-            "Module",
+            self.module_type_name(),
             &inputs,
             || self.forward(args),
         ).await

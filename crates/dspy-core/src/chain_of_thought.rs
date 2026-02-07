@@ -38,8 +38,12 @@ impl ChainOfThought {
 
 #[async_trait]
 impl crate::module_trait::Module for ChainOfThought {
+    fn module_type_name(&self) -> &str {
+        "ChainOfThought"
+    }
+
     async fn forward(&self, args: &Example) -> Result<Prediction> {
-        self.predict.forward(args).await
+        self.predict.call(args).await
     }
 
     fn named_predictors(&self) -> Vec<(&str, &Predict)> {

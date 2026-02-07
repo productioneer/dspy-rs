@@ -153,6 +153,10 @@ impl CodeAct {
 
 #[async_trait]
 impl Module for CodeAct {
+    fn module_type_name(&self) -> &str {
+        "CodeAct"
+    }
+
     async fn forward(&self, args: &Example) -> Result<Prediction> {
         // Inject tool source code into interpreter
         {
@@ -189,7 +193,7 @@ impl Module for CodeAct {
                 serde_json::to_string(&trajectory).unwrap_or_default(),
             );
 
-            let code_data = self.code_act_predict.forward(&predict_args).await?;
+            let code_data = self.code_act_predict.call(&predict_args).await?;
             let (code, parse_error) = Self::parse_code(&code_data);
 
             if let Some(err) = parse_error {
@@ -240,7 +244,7 @@ impl Module for CodeAct {
         extract_args =
             extract_args.field("trajectory", Self::format_trajectory(&trajectory));
 
-        let extract_result = self.extractor.forward(&extract_args).await?;
+        let extract_result = self.extractor.call(&extract_args).await?;
 
         {
             let mut interp = self.interpreter.lock().await;
