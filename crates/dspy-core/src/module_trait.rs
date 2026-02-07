@@ -1,6 +1,7 @@
 //! Module trait — composable program unit.
 //! Python equivalent: dspy/primitives/module.py
 
+use crate::callback::{with_callbacks_async, ComponentType};
 use crate::error::Result;
 use crate::example::Example;
 use crate::lm::LM;
@@ -12,6 +13,18 @@ use std::sync::Arc;
 #[async_trait]
 pub trait Module: Send + Sync {
     async fn forward(&self, args: &Example) -> Result<Prediction>;
+
+    /// Call this module with callbacks. This is the standard entry point
+    /// (equivalent to Python's Module.__call__).
+    async fn call(&self, args: &Example) -> Result<Prediction> {
+        let inputs = serde_json::to_value(args).unwrap_or_default();
+        with_callbacks_async(
+            ComponentType::Module,
+            "Module",
+            &inputs,
+            || self.forward(args),
+        ).await
+    }
 
     fn named_predictors(&self) -> Vec<(&str, &Predict)> {
         vec![]

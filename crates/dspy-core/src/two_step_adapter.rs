@@ -8,7 +8,7 @@
 //! Useful with reasoning models (for instance, o3-mini) that struggle with structured outputs.
 
 use crate::adapter::{Adapter, ChatAdapter};
-use crate::callback::{with_callbacks_sync, ComponentType};
+use crate::callback::{with_callbacks_async, with_callbacks_sync, ComponentType};
 use crate::error::{DspyError, Result};
 use crate::example::Example;
 use crate::lm::{LMConfig, Message, LM};
@@ -167,7 +167,16 @@ impl Adapter for TwoStepAdapter {
             &format_inputs,
             || Ok::<_, DspyError>(self.format_first_pass_messages(signature, inputs, demos)),
         )?;
-        let responses = lm.call(&messages, config).await?;
+        let lm_inputs = serde_json::json!({
+            "messages": messages.len(),
+            "model": lm.model(),
+        });
+        let responses = with_callbacks_async(
+            ComponentType::Lm,
+            lm.model(),
+            &lm_inputs,
+            || lm.call(&messages, config),
+        ).await?;
 
         if responses.is_empty() {
             return Err(DspyError::LMError("No responses from LM".into()));
