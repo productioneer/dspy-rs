@@ -120,6 +120,11 @@ impl Retrieve {
 mod tests {
     use super::*;
 
+    /// Mutex to serialize tests that use the global retriever.
+    /// Rust tests run in parallel by default; without this, one test can
+    /// clear the global retriever while another is using it.
+    static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     struct MockRetriever {
         passages: Vec<String>,
     }
@@ -133,6 +138,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_basic() {
+        let _lock = TEST_MUTEX.lock().unwrap();
         let mock = Arc::new(MockRetriever {
             passages: vec![
                 "First passage".to_string(),
@@ -160,6 +166,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retrieve_override_k() {
+        let _lock = TEST_MUTEX.lock().unwrap();
         let mock = Arc::new(MockRetriever {
             passages: vec![
                 "A".to_string(),
