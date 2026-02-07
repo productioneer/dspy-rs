@@ -6,6 +6,7 @@
 //!
 //! Matches Python DSPy's dspy.Retrieve interface.
 
+use crate::callback::{with_callbacks_async, ComponentType};
 use crate::error::{DspyError, Result};
 use crate::prediction::Prediction;
 use crate::value::Value;
@@ -88,22 +89,30 @@ impl Retrieve {
         }
     }
 
-    /// Execute retrieval query.
+    /// Execute retrieval query, wrapped with module callbacks.
     pub async fn forward(&self, query: &str, k: Option<usize>) -> Result<Prediction> {
         let num_results = k.unwrap_or(self.k);
+        let inputs = serde_json::json!({ "query": query, "k": num_results });
+        with_callbacks_async(
+            ComponentType::Module,
+            "Retrieve",
+            &inputs,
+            || async {
+                let rm = get_global_retriever().ok_or_else(|| {
+                    DspyError::Other(
+                        "No retrieval module is configured. Set one via set_global_retriever().".to_string(),
+                    )
+                })?;
 
-        let rm = get_global_retriever().ok_or_else(|| {
-            DspyError::Other(
-                "No retrieval module is configured. Set one via set_global_retriever().".to_string(),
-            )
-        })?;
+                let passages = rm.retrieve(query, num_results).await?;
+                let passage_values: Vec<Value> = passages.into_iter().map(Value::from).collect();
 
-        let passages = rm.retrieve(query, num_results).await?;
-        let passage_values: Vec<Value> = passages.into_iter().map(Value::from).collect();
-
-        let mut data = HashMap::new();
-        data.insert("passages".to_string(), Value::List(passage_values));
-        Ok(Prediction::new(data))
+                let mut data = HashMap::new();
+                data.insert("passages".to_string(), Value::List(passage_values));
+                Ok(Prediction::new(data))
+            },
+        )
+        .await
     }
 }
 

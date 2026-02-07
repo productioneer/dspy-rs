@@ -204,6 +204,52 @@ pub fn invoke_end_callbacks(
     }
 }
 
+/// Execute an async operation wrapped with start/end callbacks.
+/// Generates a unique call_id and fires start callbacks before, end callbacks after.
+pub async fn with_callbacks_async<T, F, Fut>(
+    component_type: ComponentType,
+    instance_type: &str,
+    inputs: &serde_json::Value,
+    func: F,
+) -> T
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = T>,
+{
+    let callbacks = get_global_callbacks();
+    if callbacks.is_empty() {
+        return func().await;
+    }
+
+    let call_id = format!("{:032x}", rand::random::<u128>());
+    invoke_start_callbacks(component_type, &callbacks, &call_id, instance_type, inputs);
+    let result = func().await;
+    invoke_end_callbacks(component_type, &callbacks, &call_id, None, None);
+    result
+}
+
+/// Execute a sync operation wrapped with start/end callbacks.
+pub fn with_callbacks_sync<T, F>(
+    component_type: ComponentType,
+    instance_type: &str,
+    inputs: &serde_json::Value,
+    func: F,
+) -> T
+where
+    F: FnOnce() -> T,
+{
+    let callbacks = get_global_callbacks();
+    if callbacks.is_empty() {
+        return func();
+    }
+
+    let call_id = format!("{:032x}", rand::random::<u128>());
+    invoke_start_callbacks(component_type, &callbacks, &call_id, instance_type, inputs);
+    let result = func();
+    invoke_end_callbacks(component_type, &callbacks, &call_id, None, None);
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

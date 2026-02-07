@@ -1,6 +1,7 @@
 //! Evaluate — parallel evaluation of Module on dataset with metric.
 //! Python equivalent: dspy/evaluate/evaluate.py
 
+use crate::callback::{with_callbacks_async, ComponentType};
 use crate::error::{DspyError, Result};
 use crate::example::Example;
 use crate::module_trait::Module;
@@ -48,14 +49,26 @@ impl Evaluate {
         }
     }
 
-    /// Run evaluation on the given module, returning average score and per-example results
+    /// Run evaluation on the given module, returning average score and per-example results.
+    /// Wrapped with evaluate callbacks matching Python DSPy's Evaluate.__call__ with @with_callbacks.
     pub async fn run(&self, program: &dyn Module) -> Result<EvaluationResult> {
+        let inputs = serde_json::json!({
+            "devsetSize": self.devset.len(),
+        });
+        with_callbacks_async(
+            ComponentType::Evaluate,
+            "Evaluate",
+            &inputs,
+            || self.run_inner(program),
+        )
+        .await
+    }
+
+    async fn run_inner(&self, program: &dyn Module) -> Result<EvaluationResult> {
         let mut results: Vec<(Example, Prediction, f64)> = Vec::new();
         let mut errors = 0usize;
         let mut total_score = 0.0;
 
-        // Evaluate sequentially for simplicity (concurrent version would use tokio::spawn)
-        // In the future, we can use semaphore-based concurrency like the TS version
         for example in &self.devset {
             let inputs = example.inputs();
 
@@ -72,7 +85,6 @@ impl Evaluate {
                             "Too many errors during evaluation: {errors}"
                         )));
                     }
-                    // Create a failed result with failure score
                     let empty_pred = Prediction::new(std::collections::HashMap::new());
                     results.push((example.clone(), empty_pred, self.config.failure_score));
                     total_score += self.config.failure_score;
@@ -81,7 +93,6 @@ impl Evaluate {
         }
 
         let count = self.devset.len() as f64;
-        // Score as percentage (0-100) matching Python DSPy and TS port
         let avg_score = if count > 0.0 {
             (total_score / count) * 100.0
         } else {

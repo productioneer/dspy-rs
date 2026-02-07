@@ -43,7 +43,11 @@ pub struct ParallelExecutor {
 
 impl ParallelExecutor {
     /// Create a new ParallelExecutor with the given configuration.
-    pub fn new(config: ParallelExecutorConfig) -> Self {
+    pub fn new(mut config: ParallelExecutorConfig) -> Self {
+        // Guard against 0 threads which would cause a hang
+        if config.num_threads == 0 {
+            config.num_threads = 1;
+        }
         Self { config }
     }
 
@@ -55,13 +59,15 @@ impl ParallelExecutor {
     /// Execute a function over all data items in parallel.
     ///
     /// Returns a Vec of Options where None represents failed/cancelled items.
+    /// After the main batch, timed-out items are resubmitted sequentially
+    /// if their count is within the straggler_limit.
     pub async fn execute<T, R, F, Fut>(
         &self,
         data: Vec<T>,
         func: F,
     ) -> Result<Vec<Option<R>>>
     where
-        T: Send + Sync + 'static,
+        T: Send + Sync + Clone + 'static,
         R: Send + 'static,
         F: Fn(T) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = Result<R>> + Send + 'static,
@@ -75,6 +81,7 @@ impl ParallelExecutor {
         }
 
         let error_count = Arc::new(AtomicUsize::new(0));
+        let timed_out_indices = Arc::new(tokio::sync::Mutex::new(Vec::<usize>::new()));
         let cancel = Arc::new(AtomicBool::new(false));
         let semaphore = Arc::new(Semaphore::new(self.config.num_threads));
         let func = Arc::new(func);
@@ -84,12 +91,16 @@ impl ParallelExecutor {
 
         let mut handles = Vec::with_capacity(len);
 
+        // Keep a clone of data for straggler resubmission
+        let data_clone = data.clone();
+
         for (idx, item) in data.into_iter().enumerate() {
             let sem = semaphore.clone();
             let func = func.clone();
             let results = results.clone();
             let error_count = error_count.clone();
             let cancel = cancel.clone();
+            let timed_out = timed_out_indices.clone();
 
             let handle = tokio::spawn(async move {
                 let _permit = sem.acquire().await.unwrap();
@@ -123,12 +134,10 @@ impl ParallelExecutor {
                         }
                     }
                     Err(_elapsed) => {
-                        let count = error_count.fetch_add(1, Ordering::SeqCst) + 1;
+                        // Track timed-out items for straggler resubmission
+                        timed_out.lock().await.push(idx);
                         if provide_traceback {
                             eprintln!("Timeout for item {idx}");
-                        }
-                        if count >= max_errors {
-                            cancel.store(true, Ordering::SeqCst);
                         }
                     }
                 }
@@ -140,6 +149,39 @@ impl ParallelExecutor {
         for handle in handles {
             let _ = handle.await;
         }
+
+        if cancel.load(Ordering::SeqCst) {
+            return Err(DspyError::Other(
+                "Execution cancelled due to errors or interruption.".to_string(),
+            ));
+        }
+
+        // Straggler resubmission: retry timed-out items sequentially
+        let timed_out = timed_out_indices.lock().await;
+        if !timed_out.is_empty() && timed_out.len() <= self.config.straggler_limit {
+            for &idx in timed_out.iter() {
+                if cancel.load(Ordering::SeqCst) {
+                    break;
+                }
+                let item = data_clone[idx].clone();
+                match func(item).await {
+                    Ok(value) => {
+                        let mut guard = results.lock().await;
+                        guard[idx] = Some(value);
+                    }
+                    Err(e) => {
+                        let count = error_count.fetch_add(1, Ordering::SeqCst) + 1;
+                        if provide_traceback {
+                            eprintln!("Straggler error for item {idx}: {e}");
+                        }
+                        if count >= max_errors {
+                            cancel.store(true, Ordering::SeqCst);
+                        }
+                    }
+                }
+            }
+        }
+        drop(timed_out);
 
         if cancel.load(Ordering::SeqCst) {
             return Err(DspyError::Other(

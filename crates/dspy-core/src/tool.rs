@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 
+use crate::callback::{with_callbacks_async, ComponentType};
 use crate::error::{DspyError, Result};
 
 /// JSON schema for a tool argument.
@@ -48,10 +49,19 @@ impl Tool {
         }
     }
 
-    /// Call the tool with the given arguments.
+    /// Call the tool with the given arguments, wrapped with tool callbacks.
     pub async fn call(&self, kwargs: HashMap<String, serde_json::Value>) -> Result<serde_json::Value> {
-        self.validate_args(&kwargs)?;
-        (self.func)(kwargs).await
+        let inputs = serde_json::to_value(&kwargs).unwrap_or_default();
+        with_callbacks_async(
+            ComponentType::Tool,
+            &self.name,
+            &inputs,
+            || async {
+                self.validate_args(&kwargs)?;
+                (self.func)(kwargs).await
+            },
+        )
+        .await
     }
 
     /// Validate arguments against the schema.

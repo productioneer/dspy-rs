@@ -46,6 +46,7 @@ pub struct StreamListener {
     pub stream_end: bool,
     pub cache_hit: bool,
 
+    active_adapter_name: Option<String>,
     identifiers: std::collections::HashMap<String, AdapterIdentifiers>,
 }
 
@@ -101,6 +102,7 @@ impl StreamListener {
             stream_start: false,
             stream_end: false,
             cache_hit: false,
+            active_adapter_name: None,
             identifiers,
         }
     }
@@ -112,6 +114,7 @@ impl StreamListener {
             AdapterType::JsonAdapter => "JsonAdapter",
             AdapterType::XmlAdapter => "XmlAdapter",
         };
+        self.active_adapter_name = Some(adapter_name.to_string());
 
         // Clone config values upfront to avoid holding immutable borrow across mutable ops
         let (start_identifier, end_identifier, start_indicator) = {
@@ -208,10 +211,20 @@ impl StreamListener {
         None
     }
 
-    /// Flush remaining buffered tokens.
+    /// Flush remaining buffered tokens, trimming adapter-specific end delimiters.
     pub fn flush(&mut self) -> String {
-        let tokens: String = self.field_end_queue.join("");
+        let mut tokens: String = self.field_end_queue.join("");
         self.field_end_queue.clear();
+
+        // Trim adapter-specific end delimiters to prevent delimiter leakage
+        if let Some(ref adapter_name) = self.active_adapter_name {
+            if let Some(config) = self.identifiers.get(adapter_name.as_str()) {
+                if let Some(m) = config.end_identifier.find(&tokens) {
+                    tokens = tokens[..m.start()].to_string();
+                }
+            }
+        }
+
         tokens
     }
 
@@ -242,6 +255,7 @@ impl StreamListener {
         self.field_start_queue.clear();
         self.field_end_queue.clear();
         self.stream_start = false;
+        self.active_adapter_name = None;
     }
 
     fn could_form_start(&self, concat: &str, start_identifier: &str) -> bool {
