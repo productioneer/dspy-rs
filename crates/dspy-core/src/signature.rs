@@ -139,8 +139,27 @@ impl Signature {
             ));
         }
 
+        // Auto-generate instructions from field names, matching Python DSPy behavior.
+        // Important: instructions are set at signature creation time and preserved
+        // when fields are later added/removed (e.g., CoT prepending "reasoning").
+        let input_names: Vec<String> = fields
+            .iter()
+            .filter(|(_, f)| f.field_type == FieldType::Input)
+            .map(|(k, _)| format!("`{}`", k))
+            .collect();
+        let output_names: Vec<String> = fields
+            .iter()
+            .filter(|(_, f)| f.field_type == FieldType::Output)
+            .map(|(k, _)| format!("`{}`", k))
+            .collect();
+        let instructions = format!(
+            "Given the fields {}, produce the fields {}.",
+            input_names.join(", "),
+            output_names.join(", ")
+        );
+
         Ok(Self {
-            instructions: String::new(),
+            instructions,
             fields,
         })
     }
@@ -505,11 +524,12 @@ mod tests {
     #[test]
     fn test_with_instructions() {
         let sig = Signature::from_string("q -> a").unwrap();
-        assert_eq!(sig.instructions(), "");
+        // from_string auto-generates instructions (matching Python DSPy behavior)
+        assert_eq!(sig.instructions(), "Given the fields `q`, produce the fields `a`.");
         let sig2 = sig.with_instructions("Do something");
         assert_eq!(sig2.instructions(), "Do something");
         // Original unchanged
-        assert_eq!(sig.instructions(), "");
+        assert_eq!(sig.instructions(), "Given the fields `q`, produce the fields `a`.");
     }
 
     #[test]

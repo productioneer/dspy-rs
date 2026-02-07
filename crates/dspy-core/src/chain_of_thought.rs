@@ -17,8 +17,10 @@ pub struct ChainOfThought {
 impl ChainOfThought {
     pub fn new(signature: Signature) -> Self {
         // Prepend a "reasoning" output field before existing output fields
+        // Python DSPy uses desc="${reasoning}" which renders as empty in the adapter.
+        // The prefix carries the actual prompt text. Match this for parity.
         let extended = signature.prepend(
-            output_field("reasoning").with_desc("Let's think step by step in order to produce the answer. We ..."),
+            output_field("reasoning"),
         );
         Self {
             predict: Predict::new(extended),
