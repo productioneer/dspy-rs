@@ -5,8 +5,10 @@
 //! `configure()` sets global defaults, `with_settings()` provides scoped overrides.
 
 use crate::adapter::Adapter;
+use crate::cache::Cache;
 use crate::lm::LM;
 use crate::predict::Trace;
+use crate::usage_tracker::UsageTracker;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
@@ -16,6 +18,23 @@ pub struct Settings {
     pub lm: Option<Arc<dyn LM>>,
     pub adapter: Option<Arc<dyn Adapter>>,
     pub trace: Option<Arc<Mutex<Vec<Trace>>>>,
+    /// Global cache instance. None = use default global cache.
+    pub cache: Option<CacheSetting>,
+    /// Usage tracker for the current context. Set via with_settings.
+    pub usage_tracker: Option<Arc<Mutex<UsageTracker>>>,
+    /// Disable LM call history recording. Default: false
+    pub disable_history: bool,
+    /// Max entries per LM history array. Default: 10000
+    pub max_history_size: usize,
+}
+
+/// Cache setting — either a specific cache instance or disabled.
+#[derive(Clone)]
+pub enum CacheSetting {
+    /// Use a specific cache instance
+    Instance(Arc<Cache>),
+    /// Caching is explicitly disabled
+    Disabled,
 }
 
 impl Default for Settings {
@@ -30,6 +49,10 @@ impl Settings {
             lm: None,
             adapter: None,
             trace: None,
+            cache: None,
+            usage_tracker: None,
+            disable_history: false,
+            max_history_size: 10000,
         }
     }
 
@@ -45,6 +68,31 @@ impl Settings {
 
     pub fn with_trace(mut self) -> Self {
         self.trace = Some(Arc::new(Mutex::new(Vec::new())));
+        self
+    }
+
+    pub fn with_cache(mut self, cache: Arc<Cache>) -> Self {
+        self.cache = Some(CacheSetting::Instance(cache));
+        self
+    }
+
+    pub fn with_cache_disabled(mut self) -> Self {
+        self.cache = Some(CacheSetting::Disabled);
+        self
+    }
+
+    pub fn with_usage_tracker(mut self, tracker: Arc<Mutex<UsageTracker>>) -> Self {
+        self.usage_tracker = Some(tracker);
+        self
+    }
+
+    pub fn with_disable_history(mut self, disable: bool) -> Self {
+        self.disable_history = disable;
+        self
+    }
+
+    pub fn with_max_history_size(mut self, size: usize) -> Self {
+        self.max_history_size = size;
         self
     }
 }
@@ -109,6 +157,10 @@ mod tests {
         let s = get_settings();
         assert!(s.lm.is_none());
         assert!(s.adapter.is_none());
+        assert!(s.cache.is_none());
+        assert!(s.usage_tracker.is_none());
+        assert!(!s.disable_history);
+        assert_eq!(s.max_history_size, 10000);
     }
 
     #[test]
@@ -150,5 +202,39 @@ mod tests {
             let s3 = get_settings();
             assert!(s3.trace.is_some());
         });
+    }
+
+    #[test]
+    fn test_cache_setting_disabled() {
+        reset_settings();
+        with_settings(Settings::new().with_cache_disabled(), || {
+            let s = get_settings();
+            assert!(matches!(s.cache, Some(CacheSetting::Disabled)));
+        });
+    }
+
+    #[test]
+    fn test_usage_tracker_setting() {
+        reset_settings();
+        let tracker = Arc::new(Mutex::new(UsageTracker::new()));
+        with_settings(Settings::new().with_usage_tracker(tracker.clone()), || {
+            let s = get_settings();
+            assert!(s.usage_tracker.is_some());
+        });
+    }
+
+    #[test]
+    fn test_history_settings() {
+        reset_settings();
+        with_settings(
+            Settings::new()
+                .with_disable_history(true)
+                .with_max_history_size(100),
+            || {
+                let s = get_settings();
+                assert!(s.disable_history);
+                assert_eq!(s.max_history_size, 100);
+            },
+        );
     }
 }

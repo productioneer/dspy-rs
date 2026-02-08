@@ -86,7 +86,10 @@ pub use interpreter::{
 };
 pub use json_adapter::JSONAdapter;
 pub use knn::{Embedder, KNN};
-pub use lm::{LMConfig, LMResponse, Message, Usage, LM};
+pub use lm::{
+    call_with_cache, clear_history, configure_cache, inspect_history, reset_global_cache,
+    HistoryEntry, LMConfig, LMResponse, Message, Usage, LM,
+};
 pub use mock_interpreter::{MockErrorType, MockInterpreter, MockResponse};
 pub use sandboxed_interpreter::{SandboxedInterpreter, SandboxedInterpreterOptions};
 pub use module_trait::Module;
