@@ -2,111 +2,115 @@
 //!
 //! Full-parity port of Python DSPy v3.1.3 core infrastructure.
 
-pub mod error;
-pub mod value;
-pub mod example;
-pub mod prediction;
-pub mod signature;
-pub mod settings;
-pub mod lm;
 pub mod adapter;
 pub mod adapter_types;
-pub mod json_adapter;
-pub mod xml_adapter;
-pub mod two_step_adapter;
-pub mod module_trait;
-pub mod predict;
-pub mod chain_of_thought;
 pub mod aggregation;
 pub mod best_of_n;
-pub mod multi_chain_comparison;
-pub mod parallel;
-pub mod refine;
-pub mod tool;
-pub mod react;
-pub mod evaluate;
-pub mod knn;
-pub mod claude_lm;
-pub mod codex_lm;
-pub mod interpreter;
-pub mod mock_interpreter;
-pub mod repl_types;
-pub mod program_of_thought;
-pub mod code_act;
-pub mod rlm;
-pub mod finetune_types;
-pub mod provider;
 pub mod bootstrap_trace;
 pub mod cache;
 pub mod callback;
-pub mod retrieve;
-pub mod usage_tracker;
-pub mod parallelizer;
+pub mod chain_of_thought;
+pub mod claude_lm;
+pub mod code_act;
+pub mod codex_lm;
 pub mod dataset;
 pub mod embedder;
+pub mod error;
+pub mod evaluate;
+pub mod example;
+pub mod finetune_types;
+pub mod interpreter;
+pub mod json_adapter;
+pub mod knn;
+pub mod lm;
+pub mod mock_interpreter;
+pub mod module_trait;
+pub mod multi_chain_comparison;
+pub mod parallel;
+pub mod parallelizer;
+pub mod predict;
+pub mod prediction;
+pub mod program_of_thought;
+pub mod provider;
+pub mod react;
+pub mod refine;
+pub mod repl_types;
+pub mod retrieve;
+pub mod rlm;
+pub mod sandboxed_interpreter;
+pub mod settings;
+pub mod signature;
 pub mod streaming;
+pub mod tool;
+pub mod two_step_adapter;
+pub mod usage_tracker;
+pub mod value;
+pub mod xml_adapter;
 
 #[cfg(test)]
 mod golden_trace_tests;
 
 // Re-exports
-pub use error::{DspyError, Result};
-pub use value::Value;
-pub use example::Example;
-pub use prediction::Prediction;
-pub use signature::{Signature, FieldDef, FieldType, FieldUpdate, input_field, output_field, SignatureBuilder};
-pub use settings::{Settings, configure, get_settings, with_settings, reset_settings};
-pub use lm::{LM, LMConfig, LMResponse, Message, Usage};
 pub use adapter::{Adapter, ChatAdapter};
 pub use adapter_types::{
-    AdapterType, AdapterTypeOutput, Image, Audio, DSPyFile, History,
-    Code as CodeType, Reasoning, ContentBlock,
-    TypedMessage, MessageContent,
-    CUSTOM_TYPE_START, CUSTOM_TYPE_END,
-    split_message_content_for_custom_types,
+    split_message_content_for_custom_types, AdapterType, AdapterTypeOutput, Audio,
+    Code as CodeType, ContentBlock, DSPyFile, History, Image, MessageContent, Reasoning,
+    TypedMessage, CUSTOM_TYPE_END, CUSTOM_TYPE_START,
 };
-pub use json_adapter::JSONAdapter;
-pub use xml_adapter::XMLAdapter;
-pub use two_step_adapter::TwoStepAdapter;
-pub use module_trait::Module;
-pub use predict::{Predict, Trace};
-pub use chain_of_thought::ChainOfThought;
 pub use aggregation::majority;
 pub use best_of_n::BestOfN;
-pub use multi_chain_comparison::MultiChainComparison;
-pub use parallel::{parallel_execute, ParallelConfig, ParallelResult};
-pub use refine::Refine;
-pub use tool::{Tool, ToolArg, ToolCall, ToolCalls};
-pub use react::{ReAct, ReActOptions};
-pub use evaluate::{Evaluate, EvaluateConfig, EvaluationResult, Metric};
-pub use knn::{KNN, Embedder};
-pub use claude_lm::{ClaudeLM, ClaudeLMConfig};
-pub use codex_lm::{CodexLM, CodexLMConfig};
-pub use interpreter::{CodeInterpreter, CodeInterpreterError, ExecutionResult, FinalOutput, InterpreterTool, OutputFieldDef};
-pub use mock_interpreter::{MockInterpreter, MockResponse, MockErrorType};
-pub use repl_types::{REPLVariable, REPLEntry, REPLHistory, create_repl_variable, format_repl_variable};
-pub use program_of_thought::ProgramOfThought;
-pub use code_act::CodeAct;
-pub use rlm::RLM;
-pub use finetune_types::{
-    TrainingStatus, TrainDataFormat, TrainingMessage,
-    GRPOChatData, GRPOGroup, GRPOStatus,
-    infer_data_format, validate_data_format,
-};
-pub use provider::{TrainingJob, ReinforceJob, Provider};
 pub use bootstrap_trace::{
-    FailedPrediction, TraceEntry, TraceData,
-    BootstrapTraceOptions, bootstrap_trace_data,
+    bootstrap_trace_data, BootstrapTraceOptions, FailedPrediction, TraceData, TraceEntry,
 };
 pub use cache::{Cache, CacheConfig};
 pub use callback::{
-    Callback, ComponentType, set_global_callbacks, get_global_callbacks,
-    add_global_callback, clear_global_callbacks,
-    invoke_start_callbacks, invoke_end_callbacks,
+    add_global_callback, clear_global_callbacks, get_global_callbacks, invoke_end_callbacks,
+    invoke_start_callbacks, set_global_callbacks, Callback, ComponentType,
 };
-pub use retrieve::{Retrieve, RetrieverModule, set_global_retriever, get_global_retriever};
-pub use usage_tracker::UsageTracker;
-pub use parallelizer::{ParallelExecutor, ParallelExecutorConfig};
+pub use chain_of_thought::ChainOfThought;
+pub use claude_lm::{ClaudeLM, ClaudeLMConfig};
+pub use code_act::CodeAct;
+pub use codex_lm::{CodexLM, CodexLMConfig};
 pub use dataset::{Dataset as DatasetBase, DatasetConfig};
 pub use embedder::{Embedder as EmbedderClient, EmbeddingFunction};
-pub use streaming::{StreamListener, StreamResponse, AdapterType as StreamAdapterType};
+pub use error::{DspyError, Result};
+pub use evaluate::{Evaluate, EvaluateConfig, EvaluationResult, Metric};
+pub use example::Example;
+pub use finetune_types::{
+    infer_data_format, validate_data_format, GRPOChatData, GRPOGroup, GRPOStatus, TrainDataFormat,
+    TrainingMessage, TrainingStatus,
+};
+pub use interpreter::{
+    CodeInterpreter, CodeInterpreterError, ExecutionResult, FinalOutput, InterpreterTool,
+    OutputFieldDef,
+};
+pub use json_adapter::JSONAdapter;
+pub use knn::{Embedder, KNN};
+pub use lm::{LMConfig, LMResponse, Message, Usage, LM};
+pub use mock_interpreter::{MockErrorType, MockInterpreter, MockResponse};
+pub use sandboxed_interpreter::{SandboxedInterpreter, SandboxedInterpreterOptions};
+pub use module_trait::Module;
+pub use multi_chain_comparison::MultiChainComparison;
+pub use parallel::{parallel_execute, ParallelConfig, ParallelResult};
+pub use parallelizer::{ParallelExecutor, ParallelExecutorConfig};
+pub use predict::{Predict, Trace};
+pub use prediction::Prediction;
+pub use program_of_thought::ProgramOfThought;
+pub use provider::{Provider, ReinforceJob, TrainingJob};
+pub use react::{ReAct, ReActOptions};
+pub use refine::Refine;
+pub use repl_types::{
+    create_repl_variable, format_repl_variable, REPLEntry, REPLHistory, REPLVariable,
+};
+pub use retrieve::{get_global_retriever, set_global_retriever, Retrieve, RetrieverModule};
+pub use rlm::RLM;
+pub use settings::{configure, get_settings, reset_settings, with_settings, Settings};
+pub use signature::{
+    input_field, output_field, FieldDef, FieldType, FieldUpdate, Signature, SignatureBuilder,
+};
+pub use streaming::{AdapterType as StreamAdapterType, StreamListener, StreamResponse};
+pub use tool::{Tool, ToolArg, ToolCall, ToolCalls};
+pub use two_step_adapter::TwoStepAdapter;
+pub use usage_tracker::UsageTracker;
+pub use value::Value;
+pub use xml_adapter::XMLAdapter;
