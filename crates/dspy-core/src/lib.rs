@@ -53,9 +53,9 @@ mod golden_trace_tests;
 // Re-exports
 pub use adapter::{Adapter, ChatAdapter};
 pub use adapter_types::{
-    split_message_content_for_custom_types, AdapterType, AdapterTypeOutput, Audio,
-    Code as CodeType, ContentBlock, DSPyFile, History, Image, MessageContent, Reasoning,
-    TypedMessage, CUSTOM_TYPE_END, CUSTOM_TYPE_START,
+    split_message_content_for_custom_types, AdapterType, AdapterTypeOutput, Audio, Citation,
+    Citations, Code as CodeType, ContentBlock, DSPyFile, Document, DocumentMediaType, History,
+    Image, MessageContent, Reasoning, TypedMessage, CUSTOM_TYPE_END, CUSTOM_TYPE_START,
 };
 pub use aggregation::majority;
 pub use best_of_n::BestOfN;

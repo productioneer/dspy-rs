@@ -498,6 +498,302 @@ impl fmt::Display for Reasoning {
 }
 
 // ============================================================================
+// Document (experimental — for Anthropic Citations API)
+// ============================================================================
+
+/// Allowed media types for Document content.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DocumentMediaType {
+    TextPlain,
+    ApplicationPdf,
+}
+
+impl DocumentMediaType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DocumentMediaType::TextPlain => "text/plain",
+            DocumentMediaType::ApplicationPdf => "application/pdf",
+        }
+    }
+}
+
+impl fmt::Display for DocumentMediaType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+/// A document type for providing content that can be cited by language models.
+///
+/// Represents documents for citation-enabled responses, particularly useful
+/// with Anthropic's Citations API. Marked @experimental in Python DSPy (v3.0.4).
+#[derive(Debug, Clone)]
+pub struct Document {
+    pub data: String,
+    pub title: Option<String>,
+    pub media_type: DocumentMediaType,
+    pub context: Option<String>,
+}
+
+impl Document {
+    /// Create a Document with just data content.
+    pub fn new(data: impl Into<String>) -> Self {
+        Self {
+            data: data.into(),
+            title: None,
+            media_type: DocumentMediaType::TextPlain,
+            context: None,
+        }
+    }
+
+    /// Create a Document with all fields.
+    pub fn with_options(
+        data: impl Into<String>,
+        title: Option<String>,
+        media_type: DocumentMediaType,
+        context: Option<String>,
+    ) -> Self {
+        Self {
+            data: data.into(),
+            title,
+            media_type,
+            context,
+        }
+    }
+}
+
+impl AdapterType for Document {
+    fn format(&self) -> AdapterTypeOutput {
+        let mut source = serde_json::Map::new();
+        source.insert("type".into(), JsonValue::String("text".into()));
+        source.insert(
+            "media_type".into(),
+            JsonValue::String(self.media_type.as_str().into()),
+        );
+        source.insert("data".into(), JsonValue::String(self.data.clone()));
+
+        let mut citations = serde_json::Map::new();
+        citations.insert("enabled".into(), JsonValue::Bool(true));
+
+        let mut block = ContentBlock::new();
+        block.insert("type".into(), JsonValue::String("document".into()));
+        block.insert("source".into(), JsonValue::Object(source));
+        block.insert("citations".into(), JsonValue::Object(citations));
+
+        if let Some(ref title) = self.title {
+            block.insert("title".into(), JsonValue::String(title.clone()));
+        }
+        if let Some(ref ctx) = self.context {
+            block.insert("context".into(), JsonValue::String(ctx.clone()));
+        }
+
+        AdapterTypeOutput::Blocks(vec![block])
+    }
+
+    fn description() -> String {
+        "A document containing text content that can be referenced and cited. \
+         Include the full text content and optionally a title for proper referencing."
+            .into()
+    }
+}
+
+impl fmt::Display for Document {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let title_part = match &self.title {
+            Some(t) => format!("'{}': ", t),
+            None => String::new(),
+        };
+        write!(f, "Document({}{} chars)", title_part, self.data.len())
+    }
+}
+
+// ============================================================================
+// Citations (experimental — for Anthropic Citations API)
+// ============================================================================
+
+/// Individual citation with character location information.
+#[derive(Debug, Clone)]
+pub struct Citation {
+    pub citation_type: String,
+    pub cited_text: String,
+    pub document_index: usize,
+    pub document_title: Option<String>,
+    pub start_char_index: usize,
+    pub end_char_index: usize,
+    pub supported_text: Option<String>,
+}
+
+impl Citation {
+    /// Create a Citation with required fields.
+    pub fn new(
+        cited_text: impl Into<String>,
+        document_index: usize,
+        start_char_index: usize,
+        end_char_index: usize,
+    ) -> Self {
+        Self {
+            citation_type: "char_location".into(),
+            cited_text: cited_text.into(),
+            document_index,
+            document_title: None,
+            start_char_index,
+            end_char_index,
+            supported_text: None,
+        }
+    }
+
+    /// Create a Citation with all fields.
+    pub fn with_options(
+        citation_type: impl Into<String>,
+        cited_text: impl Into<String>,
+        document_index: usize,
+        document_title: Option<String>,
+        start_char_index: usize,
+        end_char_index: usize,
+        supported_text: Option<String>,
+    ) -> Self {
+        Self {
+            citation_type: citation_type.into(),
+            cited_text: cited_text.into(),
+            document_index,
+            document_title,
+            start_char_index,
+            end_char_index,
+            supported_text,
+        }
+    }
+
+    /// Format citation as a JSON-compatible map.
+    pub fn format(&self) -> HashMap<String, JsonValue> {
+        let mut result = HashMap::new();
+        result.insert("type".into(), JsonValue::String(self.citation_type.clone()));
+        result.insert(
+            "cited_text".into(),
+            JsonValue::String(self.cited_text.clone()),
+        );
+        result.insert(
+            "document_index".into(),
+            JsonValue::Number(serde_json::Number::from(self.document_index)),
+        );
+        result.insert(
+            "start_char_index".into(),
+            JsonValue::Number(serde_json::Number::from(self.start_char_index)),
+        );
+        result.insert(
+            "end_char_index".into(),
+            JsonValue::Number(serde_json::Number::from(self.end_char_index)),
+        );
+        if let Some(ref title) = self.document_title {
+            result.insert(
+                "document_title".into(),
+                JsonValue::String(title.clone()),
+            );
+        }
+        if let Some(ref text) = self.supported_text {
+            result.insert(
+                "supported_text".into(),
+                JsonValue::String(text.clone()),
+            );
+        }
+        result
+    }
+}
+
+/// Citations extracted from an LM response with source references.
+///
+/// Container for citation objects returned by models that support citation
+/// extraction (for instance, Anthropic's Citations API via LiteLLM).
+/// Marked @experimental in Python DSPy (v3.0.4).
+#[derive(Debug, Clone)]
+pub struct Citations {
+    pub citations: Vec<Citation>,
+}
+
+impl Citations {
+    pub fn new(citations: Vec<Citation>) -> Self {
+        Self { citations }
+    }
+
+    /// Create Citations from a list of JSON values (dicts).
+    pub fn from_json_list(dicts: &[JsonValue]) -> Self {
+        let citations = dicts
+            .iter()
+            .filter_map(|v| {
+                let obj = v.as_object()?;
+                let cited_text = obj.get("cited_text")?.as_str()?.to_string();
+                let document_index = obj.get("document_index")?.as_u64()? as usize;
+                let start_char_index = obj.get("start_char_index")?.as_u64()? as usize;
+                let end_char_index = obj.get("end_char_index")?.as_u64()? as usize;
+                let citation_type = obj
+                    .get("type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("char_location")
+                    .to_string();
+                let document_title = obj
+                    .get("document_title")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let supported_text = obj
+                    .get("supported_text")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                Some(Citation {
+                    citation_type,
+                    cited_text,
+                    document_index,
+                    document_title,
+                    start_char_index,
+                    end_char_index,
+                    supported_text,
+                })
+            })
+            .collect();
+        Self { citations }
+    }
+
+    /// Parse citations from an LM response if present.
+    pub fn parse_lm_response(response: &HashMap<String, JsonValue>) -> Option<Self> {
+        let arr = response.get("citations")?.as_array()?;
+        Some(Self::from_json_list(arr))
+    }
+
+    pub fn len(&self) -> usize {
+        self.citations.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.citations.is_empty()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, Citation> {
+        self.citations.iter()
+    }
+}
+
+impl AdapterType for Citations {
+    fn format(&self) -> AdapterTypeOutput {
+        let blocks: Vec<ContentBlock> = self
+            .citations
+            .iter()
+            .map(|c| c.format())
+            .collect();
+        AdapterTypeOutput::Blocks(blocks)
+    }
+
+    fn description() -> String {
+        "Citations with quoted text and source references. \
+         Include the exact text being cited and information about its source."
+            .into()
+    }
+}
+
+impl fmt::Display for Citations {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Citations({} citations)", self.citations.len())
+    }
+}
+
+// ============================================================================
 // Message content splitting
 // ============================================================================
 
@@ -861,6 +1157,266 @@ mod tests {
         let mut resp = HashMap::new();
         resp.insert("text".into(), JsonValue::String("just text".into()));
         assert!(Reasoning::from_lm_response(&resp).is_none());
+    }
+
+    // -- Document --
+
+    #[test]
+    fn document_from_string() {
+        let doc = Document::new("Hello world");
+        assert_eq!(doc.data, "Hello world");
+        assert_eq!(doc.media_type, DocumentMediaType::TextPlain);
+        assert!(doc.title.is_none());
+        assert!(doc.context.is_none());
+    }
+
+    #[test]
+    fn document_with_all_fields() {
+        let doc = Document::with_options(
+            "The Earth orbits the Sun.",
+            Some("Astronomy Facts".into()),
+            DocumentMediaType::ApplicationPdf,
+            Some("Science textbook".into()),
+        );
+        assert_eq!(doc.data, "The Earth orbits the Sun.");
+        assert_eq!(doc.title.as_deref(), Some("Astronomy Facts"));
+        assert_eq!(doc.media_type, DocumentMediaType::ApplicationPdf);
+        assert_eq!(doc.context.as_deref(), Some("Science textbook"));
+    }
+
+    #[test]
+    fn document_format_returns_document_block() {
+        let doc = Document::with_options(
+            "Water boils at 100C.",
+            Some("Physics".into()),
+            DocumentMediaType::TextPlain,
+            None,
+        );
+        match doc.format() {
+            AdapterTypeOutput::Blocks(blocks) => {
+                assert_eq!(blocks.len(), 1);
+                assert_eq!(blocks[0]["type"], "document");
+                let source = blocks[0]["source"].as_object().unwrap();
+                assert_eq!(source["type"], "text");
+                assert_eq!(source["media_type"], "text/plain");
+                assert_eq!(source["data"], "Water boils at 100C.");
+                let cit = blocks[0]["citations"].as_object().unwrap();
+                assert_eq!(cit["enabled"], true);
+                assert_eq!(blocks[0]["title"], "Physics");
+            }
+            _ => panic!("Expected Blocks"),
+        }
+    }
+
+    #[test]
+    fn document_format_omits_optional_fields() {
+        let doc = Document::new("Just data");
+        match doc.format() {
+            AdapterTypeOutput::Blocks(blocks) => {
+                assert!(blocks[0].get("title").is_none());
+                assert!(blocks[0].get("context").is_none());
+            }
+            _ => panic!("Expected Blocks"),
+        }
+    }
+
+    #[test]
+    fn document_display_with_title() {
+        let doc = Document::with_options(
+            "Hello",
+            Some("Greeting".into()),
+            DocumentMediaType::TextPlain,
+            None,
+        );
+        assert_eq!(format!("{}", doc), "Document('Greeting': 5 chars)");
+    }
+
+    #[test]
+    fn document_display_without_title() {
+        let doc = Document::new("Hello");
+        assert_eq!(format!("{}", doc), "Document(5 chars)");
+    }
+
+    #[test]
+    fn document_serialize_wraps_in_markers() {
+        let doc = Document::new("test");
+        let s = doc.serialize();
+        assert!(s.contains(CUSTOM_TYPE_START));
+        assert!(s.contains(CUSTOM_TYPE_END));
+        assert!(s.contains("document"));
+    }
+
+    #[test]
+    fn document_description_non_empty() {
+        let desc = Document::description();
+        assert!(!desc.is_empty());
+        assert!(desc.contains("document"));
+    }
+
+    // -- Citation & Citations --
+
+    #[test]
+    fn citation_new_with_required_fields() {
+        let c = Citation::new("The sky is blue", 0, 0, 15);
+        assert_eq!(c.citation_type, "char_location");
+        assert_eq!(c.cited_text, "The sky is blue");
+        assert_eq!(c.document_index, 0);
+        assert_eq!(c.start_char_index, 0);
+        assert_eq!(c.end_char_index, 15);
+        assert!(c.document_title.is_none());
+        assert!(c.supported_text.is_none());
+    }
+
+    #[test]
+    fn citation_with_all_fields() {
+        let c = Citation::with_options(
+            "custom",
+            "quote",
+            1,
+            Some("Doc Title".into()),
+            10,
+            20,
+            Some("full sentence".into()),
+        );
+        assert_eq!(c.citation_type, "custom");
+        assert_eq!(c.document_title.as_deref(), Some("Doc Title"));
+        assert_eq!(c.supported_text.as_deref(), Some("full sentence"));
+    }
+
+    #[test]
+    fn citation_format_includes_required_and_optional() {
+        let c = Citation::with_options(
+            "char_location",
+            "test",
+            0,
+            Some("Title".into()),
+            0,
+            4,
+            Some("test sentence".into()),
+        );
+        let f = c.format();
+        assert_eq!(f["type"], JsonValue::String("char_location".into()));
+        assert_eq!(f["cited_text"], JsonValue::String("test".into()));
+        assert_eq!(f["document_index"], JsonValue::Number(0.into()));
+        assert_eq!(f["start_char_index"], JsonValue::Number(0.into()));
+        assert_eq!(f["end_char_index"], JsonValue::Number(4.into()));
+        assert_eq!(f["document_title"], JsonValue::String("Title".into()));
+        assert_eq!(
+            f["supported_text"],
+            JsonValue::String("test sentence".into())
+        );
+    }
+
+    #[test]
+    fn citation_format_omits_optional_when_none() {
+        let c = Citation::new("text", 0, 0, 4);
+        let f = c.format();
+        assert!(!f.contains_key("document_title"));
+        assert!(!f.contains_key("supported_text"));
+    }
+
+    #[test]
+    fn citations_from_json_list() {
+        let dicts = vec![
+            serde_json::json!({
+                "cited_text": "sky is blue",
+                "document_index": 0,
+                "document_title": "Weather",
+                "start_char_index": 0,
+                "end_char_index": 11
+            }),
+            serde_json::json!({
+                "cited_text": "water is wet",
+                "document_index": 1,
+                "start_char_index": 5,
+                "end_char_index": 17
+            }),
+        ];
+        let citations = Citations::from_json_list(&dicts);
+        assert_eq!(citations.len(), 2);
+        assert_eq!(citations.citations[0].cited_text, "sky is blue");
+        assert_eq!(
+            citations.citations[0].document_title.as_deref(),
+            Some("Weather")
+        );
+        assert!(citations.citations[1].document_title.is_none());
+    }
+
+    #[test]
+    fn citations_parse_lm_response() {
+        let mut resp = HashMap::new();
+        resp.insert(
+            "citations".into(),
+            serde_json::json!([
+                {
+                    "cited_text": "test",
+                    "document_index": 0,
+                    "start_char_index": 0,
+                    "end_char_index": 4
+                }
+            ]),
+        );
+        let citations = Citations::parse_lm_response(&resp);
+        assert!(citations.is_some());
+        assert_eq!(citations.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn citations_parse_lm_response_returns_none() {
+        let resp = HashMap::new();
+        assert!(Citations::parse_lm_response(&resp).is_none());
+
+        let mut resp2 = HashMap::new();
+        resp2.insert("text".into(), JsonValue::String("hello".into()));
+        assert!(Citations::parse_lm_response(&resp2).is_none());
+    }
+
+    #[test]
+    fn citations_format_returns_blocks() {
+        let c = Citations::new(vec![Citation::new("test", 0, 0, 4)]);
+        match c.format() {
+            AdapterTypeOutput::Blocks(blocks) => {
+                assert_eq!(blocks.len(), 1);
+                assert_eq!(
+                    blocks[0]["cited_text"],
+                    JsonValue::String("test".into())
+                );
+            }
+            _ => panic!("Expected Blocks"),
+        }
+    }
+
+    #[test]
+    fn citations_display() {
+        let c = Citations::new(vec![
+            Citation::new("a", 0, 0, 1),
+            Citation::new("b", 1, 0, 1),
+        ]);
+        assert_eq!(format!("{}", c), "Citations(2 citations)");
+    }
+
+    #[test]
+    fn citations_serialize_wraps_in_markers() {
+        let c = Citations::new(vec![Citation::new("test", 0, 0, 4)]);
+        let s = c.serialize();
+        assert!(s.contains(CUSTOM_TYPE_START));
+        assert!(s.contains(CUSTOM_TYPE_END));
+    }
+
+    #[test]
+    fn citations_description_non_empty() {
+        let desc = Citations::description();
+        assert!(!desc.is_empty());
+    }
+
+    #[test]
+    fn citations_iter() {
+        let c = Citations::new(vec![
+            Citation::new("a", 0, 0, 1),
+            Citation::new("b", 1, 0, 1),
+        ]);
+        let texts: Vec<&str> = c.iter().map(|c| c.cited_text.as_str()).collect();
+        assert_eq!(texts, vec!["a", "b"]);
     }
 
     // -- splitMessageContentForCustomTypes --
