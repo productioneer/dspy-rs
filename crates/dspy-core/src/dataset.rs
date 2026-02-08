@@ -73,6 +73,54 @@ impl Dataset {
         self.shuffle_and_sample("test", &self.test_data, self.config.test_size, self.config.eval_seed)
     }
 
+    /// Prepare multiple train/eval sets indexed by seed for reproducible cross-validation.
+    /// Mirrors Python DSPy's Dataset.prepare_by_seed.
+    pub fn prepare_by_seed(
+        &mut self,
+        train_seeds: Option<&[u64]>,
+        train_size: usize,
+        dev_size: usize,
+        divide_eval_per_seed: bool,
+        eval_seed: u64,
+    ) -> (Vec<Vec<Example>>, Vec<Vec<Example>>) {
+        let seeds = train_seeds.unwrap_or(&[1, 2, 3, 4, 5]);
+
+        // Set up initial config for eval
+        self.config.train_size = Some(train_size);
+        self.config.eval_seed = eval_seed;
+        self.config.dev_size = Some(dev_size);
+        self.config.test_size = Some(0);
+
+        let eval_set = self.dev();
+        let mut eval_sets: Vec<Vec<Example>> = Vec::new();
+        let mut train_sets: Vec<Vec<Example>> = Vec::new();
+
+        let examples_per_seed = if divide_eval_per_seed {
+            dev_size / seeds.len()
+        } else {
+            dev_size
+        };
+        let mut eval_offset = 0;
+
+        for &train_seed in seeds {
+            self.config.train_seed = train_seed;
+            self.config.train_size = Some(train_size);
+            self.config.eval_seed = eval_seed;
+            self.config.dev_size = Some(dev_size);
+            self.config.test_size = Some(0);
+
+            let end = (eval_offset + examples_per_seed).min(eval_set.len());
+            eval_sets.push(eval_set[eval_offset..end].to_vec());
+            train_sets.push(self.train());
+
+            if divide_eval_per_seed {
+                eval_offset += examples_per_seed;
+            }
+        }
+
+        (train_sets, eval_sets)
+    }
+
     fn shuffle_and_sample(
         &self,
         split: &str,
@@ -208,6 +256,72 @@ mod tests {
                 a.get("question").map(|v| v.as_str()),
                 b.get("question").map(|v| v.as_str())
             );
+        }
+    }
+
+    #[test]
+    fn test_prepare_by_seed() {
+        let mut ds = Dataset::new(
+            "test",
+            DatasetConfig {
+                train_size: Some(5),
+                dev_size: Some(90),
+                eval_seed: 42,
+                ..Default::default()
+            },
+            make_data(50),
+            make_data(100),
+            Vec::new(),
+        );
+
+        let (train_sets, eval_sets) = ds.prepare_by_seed(
+            Some(&[1, 2, 3]),
+            5,
+            90,
+            true,
+            42,
+        );
+
+        assert_eq!(train_sets.len(), 3);
+        assert_eq!(eval_sets.len(), 3);
+
+        // Each train set has 5 examples
+        for ts in &train_sets {
+            assert_eq!(ts.len(), 5);
+        }
+
+        // Each eval set has 30 (90/3) examples
+        for es in &eval_sets {
+            assert_eq!(es.len(), 30);
+        }
+
+        // Different seeds produce different train orders
+        let t1: Vec<_> = train_sets[0].iter().map(|e| e.get_str("question").unwrap_or("").to_string()).collect();
+        let t2: Vec<_> = train_sets[1].iter().map(|e| e.get_str("question").unwrap_or("").to_string()).collect();
+        assert_ne!(t1, t2, "Different seeds should produce different train sets");
+    }
+
+    #[test]
+    fn test_prepare_by_seed_no_divide() {
+        let mut ds = Dataset::new(
+            "test",
+            DatasetConfig::default(),
+            make_data(50),
+            make_data(100),
+            Vec::new(),
+        );
+
+        let (_, eval_sets) = ds.prepare_by_seed(
+            Some(&[1, 2]),
+            5,
+            50,
+            false,
+            42,
+        );
+
+        // Each eval set gets the full devSize
+        for es in &eval_sets {
+            assert_eq!(es.len(), 50);
         }
     }
 
