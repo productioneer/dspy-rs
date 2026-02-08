@@ -17,8 +17,13 @@ use std::sync::{Arc, Mutex};
 /// Trait for retrieval modules that can be registered globally.
 #[async_trait]
 pub trait RetrieverModule: Send + Sync {
-    /// Retrieve top-k passages for a query.
-    async fn retrieve(&self, query: &str, k: usize) -> Result<Vec<String>>;
+    /// Retrieve top-k passages for a query, with optional kwargs.
+    async fn retrieve(
+        &self,
+        query: &str,
+        k: usize,
+        kwargs: Option<&HashMap<String, serde_json::Value>>,
+    ) -> Result<Vec<String>>;
 }
 
 /// Global retriever reference.
@@ -90,7 +95,12 @@ impl Retrieve {
     }
 
     /// Execute retrieval query, wrapped with module callbacks.
-    pub async fn forward(&self, query: &str, k: Option<usize>) -> Result<Prediction> {
+    pub async fn forward(
+        &self,
+        query: &str,
+        k: Option<usize>,
+        kwargs: Option<HashMap<String, serde_json::Value>>,
+    ) -> Result<Prediction> {
         let num_results = k.unwrap_or(self.k);
         let inputs = serde_json::json!({ "query": query, "k": num_results });
         with_callbacks_async(
@@ -104,7 +114,7 @@ impl Retrieve {
                     )
                 })?;
 
-                let passages = rm.retrieve(query, num_results).await?;
+                let passages = rm.retrieve(query, num_results, kwargs.as_ref()).await?;
                 let passage_values: Vec<Value> = passages.into_iter().map(Value::from).collect();
 
                 let mut data = HashMap::new();
@@ -131,7 +141,12 @@ mod tests {
 
     #[async_trait]
     impl RetrieverModule for MockRetriever {
-        async fn retrieve(&self, _query: &str, k: usize) -> Result<Vec<String>> {
+        async fn retrieve(
+            &self,
+            _query: &str,
+            k: usize,
+            _kwargs: Option<&HashMap<String, serde_json::Value>>,
+        ) -> Result<Vec<String>> {
             Ok(self.passages.iter().take(k).cloned().collect())
         }
     }
@@ -149,7 +164,7 @@ mod tests {
         set_global_retriever(Some(mock));
 
         let retrieve = Retrieve::new(2);
-        let result = retrieve.forward("test query", None).await.unwrap();
+        let result = retrieve.forward("test query", None, None).await.unwrap();
         let passages = result.get("passages").unwrap();
 
         if let Value::List(list) = passages {
@@ -177,11 +192,61 @@ mod tests {
         set_global_retriever(Some(mock));
 
         let retrieve = Retrieve::new(2);
-        let result = retrieve.forward("test", Some(1)).await.unwrap();
+        let result = retrieve.forward("test", Some(1), None).await.unwrap();
         let passages = result.get("passages").unwrap();
 
         if let Value::List(list) = passages {
             assert_eq!(list.len(), 1);
+        } else {
+            panic!("Expected list");
+        }
+
+        set_global_retriever(None);
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_kwargs_passthrough() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        struct KwargsRetriever;
+
+        #[async_trait]
+        impl RetrieverModule for KwargsRetriever {
+            async fn retrieve(
+                &self,
+                _query: &str,
+                k: usize,
+                kwargs: Option<&HashMap<String, serde_json::Value>>,
+            ) -> Result<Vec<String>> {
+                // Echo kwargs back as passage content for verification
+                let kw_str = match kwargs {
+                    Some(kw) => format!("{:?}", kw),
+                    None => "none".to_string(),
+                };
+                Ok(vec![kw_str; k])
+            }
+        }
+
+        set_global_retriever(Some(Arc::new(KwargsRetriever)));
+
+        let retrieve = Retrieve::new(1);
+
+        // With kwargs
+        let mut kw = HashMap::new();
+        kw.insert("filter".to_string(), serde_json::json!("recent"));
+        let result = retrieve.forward("test", None, Some(kw)).await.unwrap();
+        let passages = result.get("passages").unwrap();
+        if let Value::List(list) = passages {
+            assert!(list[0].as_str().unwrap().contains("filter"));
+        } else {
+            panic!("Expected list");
+        }
+
+        // Without kwargs
+        let result = retrieve.forward("test", None, None).await.unwrap();
+        let passages = result.get("passages").unwrap();
+        if let Value::List(list) = passages {
+            assert_eq!(list[0].as_str().unwrap(), "none");
         } else {
             panic!("Expected list");
         }
