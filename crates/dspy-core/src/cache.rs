@@ -61,6 +61,13 @@ impl LRUCache {
     }
 }
 
+/// Metadata for a cache file used during eviction.
+struct CacheFileInfo {
+    path: PathBuf,
+    size: usize,
+    modified: std::time::SystemTime,
+}
+
 /// Disk-based cache using a directory of sharded JSON files.
 struct DiskCache {
     dir: PathBuf,
@@ -104,10 +111,73 @@ impl DiskCache {
             let _ = std::fs::create_dir_all(parent);
         }
         if let Ok(data) = serde_json::to_string(value) {
-            if data.len() <= self.size_limit_bytes {
-                let _ = std::fs::write(&path, data);
+            // Skip if single item exceeds limit
+            if data.len() > self.size_limit_bytes {
+                return;
+            }
+            // Evict oldest files if total size would exceed limit
+            self.evict_if_needed(data.len());
+            let _ = std::fs::write(&path, data);
+        }
+    }
+
+    /// Evict oldest cache files (by mtime) until there's room for a new entry.
+    /// Matches Python DSPy's diskcache behavior of enforcing total size limits.
+    fn evict_if_needed(&self, new_entry_bytes: usize) {
+        let mut files = match self.list_cache_files() {
+            Ok(f) => f,
+            Err(_) => return,
+        };
+
+        let mut total_size: usize = files.iter().map(|f| f.size).sum();
+
+        if total_size + new_entry_bytes <= self.size_limit_bytes {
+            return;
+        }
+
+        // Sort by mtime ascending (oldest first)
+        files.sort_by(|a, b| a.modified.cmp(&b.modified));
+
+        for file in &files {
+            if total_size + new_entry_bytes <= self.size_limit_bytes {
+                break;
+            }
+            if std::fs::remove_file(&file.path).is_ok() {
+                total_size = total_size.saturating_sub(file.size);
             }
         }
+    }
+
+    /// List all .json files in the cache directory with size and mtime.
+    fn list_cache_files(&self) -> std::io::Result<Vec<CacheFileInfo>> {
+        let mut results = Vec::new();
+        for entry in std::fs::read_dir(&self.dir)? {
+            let entry = entry?;
+            let meta = entry.metadata()?;
+            if !meta.is_dir() {
+                continue;
+            }
+            // Read shard directory
+            for file_entry in std::fs::read_dir(entry.path())? {
+                let file_entry = file_entry?;
+                let file_name = file_entry.file_name();
+                let name = file_name.to_string_lossy();
+                if !name.ends_with(".json") {
+                    continue;
+                }
+                if let Ok(file_meta) = file_entry.metadata() {
+                    let modified = file_meta
+                        .modified()
+                        .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                    results.push(CacheFileInfo {
+                        path: file_entry.path(),
+                        size: file_meta.len() as usize,
+                        modified,
+                    });
+                }
+            }
+        }
+        Ok(results)
     }
 }
 
@@ -179,11 +249,7 @@ impl Cache {
     }
 
     /// Generate a cache key from a request by hashing its JSON representation.
-    pub fn cache_key(
-        &self,
-        request: &serde_json::Value,
-        ignored_args: Option<&[&str]>,
-    ) -> String {
+    pub fn cache_key(&self, request: &serde_json::Value, ignored_args: Option<&[&str]>) -> String {
         let ignored: &[&str] = ignored_args.unwrap_or(DEFAULT_IGNORED_ARGS);
 
         let filtered = self.sort_value_keys(request, ignored);
