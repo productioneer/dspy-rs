@@ -1,8 +1,11 @@
 //! Streaming — Stream LM responses incrementally.
 //!
 //! StreamListener captures streaming output for specific fields of a predictor.
+//! streamify() wraps a DSPy program to yield incremental results.
+//!
 //! Matches Python DSPy's dspy.streaming interface.
 
+use crate::prediction::Prediction;
 use regex::Regex;
 
 /// Response chunk from a stream listener.
@@ -16,6 +19,178 @@ pub struct StreamResponse {
     pub chunk: Option<String>,
     /// Whether this is the final chunk for this field.
     pub is_last_chunk: bool,
+}
+
+/// Status message emitted during streaming.
+#[derive(Debug, Clone)]
+pub struct StatusMessage {
+    pub message: String,
+    pub module_name: Option<String>,
+}
+
+/// Union type for values that can flow through a stream.
+#[derive(Debug, Clone)]
+pub enum StreamValue {
+    Chunk(StreamResponse),
+    Status(StatusMessage),
+    Result(Prediction),
+}
+
+/// Provider for customizable status messages during streaming.
+///
+/// Implement this trait to customize status messages emitted at
+/// module/LM/tool lifecycle boundaries. Matches Python DSPy's
+/// StatusMessageProvider.
+pub trait StatusMessageProvider: Send + Sync {
+    fn module_start_status_message(&self, _module_name: &str) -> Option<String> {
+        None
+    }
+    fn module_end_status_message(&self, _output: &Prediction) -> Option<String> {
+        None
+    }
+    fn lm_start_status_message(&self, _model: &str) -> Option<String> {
+        None
+    }
+    fn lm_end_status_message(&self) -> Option<String> {
+        None
+    }
+    fn tool_start_status_message(&self, _tool_name: &str) -> Option<String> {
+        None
+    }
+    fn tool_end_status_message(&self) -> Option<String> {
+        None
+    }
+}
+
+/// Options for streamify().
+pub struct StreamifyOptions {
+    pub stream_listeners: Vec<std::sync::Arc<std::sync::Mutex<StreamListener>>>,
+    pub status_message_provider: Option<Box<dyn StatusMessageProvider>>,
+    pub include_final_prediction: bool,
+}
+
+impl Default for StreamifyOptions {
+    fn default() -> Self {
+        Self {
+            stream_listeners: Vec::new(),
+            status_message_provider: None,
+            include_final_prediction: true,
+        }
+    }
+}
+
+/// Wrap a DSPy module to stream its outputs incrementally.
+///
+/// Runs the program with streaming context and collects:
+/// - StreamResponse chunks from each listener as fields are populated
+/// - StatusMessage for lifecycle events
+/// - The final Prediction as the last item
+///
+/// LM implementations that support streaming should check settings.send_stream
+/// and settings.stream_listeners to route response chunks through the listeners
+/// during generation. Without LM-level streaming, listeners are finalized after
+/// the forward pass completes (post-call finalization).
+///
+/// Matches Python DSPy's dspy.streamify() interface.
+pub async fn streamify<F, Fut>(
+    module_name: &str,
+    forward_fn: F,
+    options: StreamifyOptions,
+) -> Vec<StreamValue>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = crate::error::Result<Prediction>>,
+{
+    use crate::settings::{get_settings, with_settings, SendStreamFn};
+    use std::sync::{Arc, Mutex};
+
+    let mut output: Vec<StreamValue> = Vec::new();
+
+    // Emit start status
+    let start_msg = options
+        .status_message_provider
+        .as_ref()
+        .and_then(|p| p.module_start_status_message(module_name))
+        .unwrap_or_else(|| "Starting program execution".to_string());
+    output.push(StreamValue::Status(StatusMessage {
+        message: start_msg,
+        module_name: Some(module_name.to_string()),
+    }));
+
+    // Collect streamed chunks via send_stream callback
+    let streamed_chunks: Arc<Mutex<Vec<StreamValue>>> = Arc::new(Mutex::new(Vec::new()));
+    let chunks_clone = streamed_chunks.clone();
+    let send_stream: SendStreamFn = Arc::new(move |value: StreamValue| {
+        if matches!(&value, StreamValue::Result(_)) {
+            return; // predictions handled separately
+        }
+        chunks_clone.lock().unwrap().push(value);
+    });
+
+    // Execute with streaming context
+    let mut settings = get_settings();
+    settings.send_stream = Some(send_stream);
+    settings.stream_listeners = Some(options.stream_listeners.clone());
+
+    let result = with_settings(settings, || forward_fn());
+    let result = result.await;
+
+    // Yield collected chunks
+    {
+        let chunks = streamed_chunks.lock().unwrap();
+        output.extend(chunks.iter().cloned());
+    }
+
+    // Finalize listeners and yield remaining buffered content
+    for listener_arc in &options.stream_listeners {
+        let mut listener = listener_arc.lock().unwrap();
+        if let Some(final_chunk) = listener.finalize() {
+            output.push(StreamValue::Chunk(final_chunk));
+        }
+    }
+
+    match result {
+        Ok(prediction) => {
+            // Status message for completion
+            if let Some(ref provider) = options.status_message_provider {
+                if let Some(end_msg) = provider.module_end_status_message(&prediction) {
+                    output.push(StreamValue::Status(StatusMessage {
+                        message: end_msg,
+                        module_name: Some(module_name.to_string()),
+                    }));
+                }
+            }
+
+            // Yield the final prediction
+            let should_include = if options.include_final_prediction {
+                true
+            } else if options.stream_listeners.is_empty() {
+                true
+            } else {
+                let any_cache_hit = options
+                    .stream_listeners
+                    .iter()
+                    .any(|l| l.lock().unwrap().cache_hit);
+                let any_started = options
+                    .stream_listeners
+                    .iter()
+                    .any(|l| l.lock().unwrap().stream_start);
+                any_cache_hit || !any_started
+            };
+
+            if should_include {
+                output.push(StreamValue::Result(prediction));
+            }
+        }
+        Err(e) => {
+            output.push(StreamValue::Status(StatusMessage {
+                message: format!("Error: {}", e),
+                module_name: Some(module_name.to_string()),
+            }));
+        }
+    }
+
+    output
 }
 
 /// Adapter type for stream processing.
@@ -62,8 +237,11 @@ impl StreamListener {
                 end_identifier: Regex::new(r"\[\[ ## (\w+) ## \]\]").unwrap(),
                 start_indicator: "[".to_string(),
                 end_pattern_prefixes: vec![
-                    "[".to_string(), "[[".to_string(), "[[ ".to_string(),
-                    "[[ #".to_string(), "[[ ##".to_string(),
+                    "[".to_string(),
+                    "[[".to_string(),
+                    "[[ ".to_string(),
+                    "[[ #".to_string(),
+                    "[[ ##".to_string(),
                 ],
                 end_pattern_contains: "[[ ##".to_string(),
             },
@@ -76,7 +254,10 @@ impl StreamListener {
                 end_identifier: Regex::new(r#"\w*"(,|\s*\})"#).unwrap(),
                 start_indicator: "\"".to_string(),
                 end_pattern_prefixes: vec![
-                    "\"".to_string(), "\",".to_string(), "\" ".to_string(), "\"}".to_string(),
+                    "\"".to_string(),
+                    "\",".to_string(),
+                    "\" ".to_string(),
+                    "\"}".to_string(),
                 ],
                 end_pattern_contains: "}".to_string(),
             },
@@ -108,7 +289,11 @@ impl StreamListener {
     }
 
     /// Receive a chunk from the LM response stream.
-    pub fn receive(&mut self, chunk_message: &str, adapter_type: AdapterType) -> Option<StreamResponse> {
+    pub fn receive(
+        &mut self,
+        chunk_message: &str,
+        adapter_type: AdapterType,
+    ) -> Option<StreamResponse> {
         let adapter_name = match adapter_type {
             AdapterType::ChatAdapter => "ChatAdapter",
             AdapterType::JsonAdapter => "JsonAdapter",
@@ -135,11 +320,9 @@ impl StreamListener {
         }
 
         // Check for cache hit (full response in single chunk)
-        if chunk_message.contains(&start_identifier)
-            && adapter_type != AdapterType::JsonAdapter
-        {
-            let after_start = &chunk_message[chunk_message.find(&start_identifier).unwrap()
-                + start_identifier.len()..];
+        if chunk_message.contains(&start_identifier) && adapter_type != AdapterType::JsonAdapter {
+            let after_start = &chunk_message
+                [chunk_message.find(&start_identifier).unwrap() + start_identifier.len()..];
             if end_identifier.is_match(after_start) {
                 self.cache_hit = true;
                 self.stream_start = true;
@@ -166,8 +349,7 @@ impl StreamListener {
             if concat.contains(&start_identifier) {
                 self.stream_start = true;
                 self.field_start_queue.clear();
-                let value_start =
-                    concat.find(&start_identifier).unwrap() + start_identifier.len();
+                let value_start = concat.find(&start_identifier).unwrap() + start_identifier.len();
                 chunk_msg = concat[value_start..].trim_start().to_string();
             } else if self.could_form_start(concat.trim(), &start_identifier) {
                 return None;
@@ -272,10 +454,15 @@ impl StreamListener {
             Some(c) => c,
             None => return false,
         };
-        if config.end_pattern_prefixes.iter().any(|p| concat.ends_with(p.as_str())) {
+        if config
+            .end_pattern_prefixes
+            .iter()
+            .any(|p| concat.ends_with(p.as_str()))
+        {
             return true;
         }
-        if !config.end_pattern_contains.is_empty() && concat.contains(&config.end_pattern_contains) {
+        if !config.end_pattern_contains.is_empty() && concat.contains(&config.end_pattern_contains)
+        {
             return true;
         }
         false
@@ -291,10 +478,14 @@ mod tests {
         let mut listener = StreamListener::new("answer", None, false);
 
         // Simulate ChatAdapter streaming — header arrives in pieces
-        assert!(listener.receive("[[ ## answer", AdapterType::ChatAdapter).is_none());
+        assert!(listener
+            .receive("[[ ## answer", AdapterType::ChatAdapter)
+            .is_none());
         assert!(!listener.stream_start); // not yet complete
 
-        assert!(listener.receive(" ## ]]", AdapterType::ChatAdapter).is_none());
+        assert!(listener
+            .receive(" ## ]]", AdapterType::ChatAdapter)
+            .is_none());
         assert!(listener.stream_start); // now the full identifier was found
 
         let resp = listener.receive("Hello ", AdapterType::ChatAdapter);
@@ -320,7 +511,9 @@ mod tests {
 
         // Start the stream manually
         listener.stream_start = true;
-        listener.field_end_queue.push("buffered content".to_string());
+        listener
+            .field_end_queue
+            .push("buffered content".to_string());
 
         let result = listener.finalize();
         assert!(result.is_some());
@@ -339,5 +532,187 @@ mod tests {
         // Should reset on next receive when allow_reuse is true
         listener.receive("test", AdapterType::ChatAdapter);
         assert!(!listener.stream_end);
+    }
+
+    #[test]
+    fn test_status_message() {
+        let msg = StatusMessage {
+            message: "Starting".to_string(),
+            module_name: Some("ChainOfThought".to_string()),
+        };
+        assert_eq!(msg.message, "Starting");
+        assert_eq!(msg.module_name.unwrap(), "ChainOfThought");
+
+        let msg2 = StatusMessage {
+            message: "Done".to_string(),
+            module_name: None,
+        };
+        assert!(msg2.module_name.is_none());
+    }
+
+    #[test]
+    fn test_stream_value_variants() {
+        let chunk = StreamValue::Chunk(StreamResponse {
+            predict_name: None,
+            field_name: "answer".to_string(),
+            chunk: Some("Hello".to_string()),
+            is_last_chunk: false,
+        });
+        assert!(matches!(chunk, StreamValue::Chunk(_)));
+
+        let status = StreamValue::Status(StatusMessage {
+            message: "Running".to_string(),
+            module_name: None,
+        });
+        assert!(matches!(status, StreamValue::Status(_)));
+
+        let pred = Prediction::from_completions(vec![std::collections::HashMap::new()], None);
+        let result = StreamValue::Result(pred);
+        assert!(matches!(result, StreamValue::Result(_)));
+    }
+
+    #[test]
+    fn test_streamify_options_default() {
+        let opts = StreamifyOptions::default();
+        assert!(opts.stream_listeners.is_empty());
+        assert!(opts.status_message_provider.is_none());
+        assert!(opts.include_final_prediction);
+    }
+
+    struct TestStatusProvider;
+    impl StatusMessageProvider for TestStatusProvider {
+        fn module_start_status_message(&self, module_name: &str) -> Option<String> {
+            Some(format!("Starting {}", module_name))
+        }
+        fn module_end_status_message(&self, _output: &Prediction) -> Option<String> {
+            Some("Completed".to_string())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_streamify_basic() {
+        use crate::settings::reset_settings;
+        reset_settings();
+
+        let result = streamify(
+            "TestModule",
+            || async {
+                Ok(Prediction::from_completions(
+                    vec![std::collections::HashMap::new()],
+                    None,
+                ))
+            },
+            StreamifyOptions::default(),
+        )
+        .await;
+
+        // Should have at least start status and final prediction
+        assert!(result.len() >= 2);
+        assert!(
+            matches!(&result[0], StreamValue::Status(s) if s.message == "Starting program execution")
+        );
+        assert!(matches!(&result[result.len() - 1], StreamValue::Result(_)));
+    }
+
+    #[tokio::test]
+    async fn test_streamify_with_status_provider() {
+        use crate::settings::reset_settings;
+        reset_settings();
+
+        let result = streamify(
+            "MyModule",
+            || async {
+                Ok(Prediction::from_completions(
+                    vec![std::collections::HashMap::new()],
+                    None,
+                ))
+            },
+            StreamifyOptions {
+                status_message_provider: Some(Box::new(TestStatusProvider)),
+                ..Default::default()
+            },
+        )
+        .await;
+
+        // Start message should come from provider
+        assert!(matches!(&result[0], StreamValue::Status(s) if s.message == "Starting MyModule"));
+        // End message should come from provider
+        let has_end = result
+            .iter()
+            .any(|v| matches!(v, StreamValue::Status(s) if s.message == "Completed"));
+        assert!(has_end);
+    }
+
+    #[tokio::test]
+    async fn test_streamify_error_handling() {
+        use crate::settings::reset_settings;
+        reset_settings();
+
+        let result: Vec<StreamValue> = streamify(
+            "ErrorModule",
+            || async { Err(crate::error::DspyError::Other("test error".to_string())) },
+            StreamifyOptions::default(),
+        )
+        .await;
+
+        // Should have start status and error status
+        assert!(result.len() >= 2);
+        let has_error = result
+            .iter()
+            .any(|v| matches!(v, StreamValue::Status(s) if s.message.contains("test error")));
+        assert!(has_error);
+    }
+
+    #[tokio::test]
+    async fn test_streamify_exclude_final_prediction() {
+        use crate::settings::reset_settings;
+        reset_settings();
+
+        // With no listeners, prediction is always included even when include_final_prediction=false
+        let result = streamify(
+            "TestModule",
+            || async {
+                Ok(Prediction::from_completions(
+                    vec![std::collections::HashMap::new()],
+                    None,
+                ))
+            },
+            StreamifyOptions {
+                include_final_prediction: false,
+                ..Default::default()
+            },
+        )
+        .await;
+
+        // Should still include prediction because no listeners are present
+        let has_prediction = result.iter().any(|v| matches!(v, StreamValue::Result(_)));
+        assert!(has_prediction);
+    }
+
+    #[tokio::test]
+    async fn test_streamify_with_listener() {
+        use crate::settings::reset_settings;
+        use std::sync::{Arc, Mutex};
+        reset_settings();
+
+        let listener = Arc::new(Mutex::new(StreamListener::new("answer", None, false)));
+
+        let result = streamify(
+            "TestModule",
+            || async {
+                Ok(Prediction::from_completions(
+                    vec![std::collections::HashMap::new()],
+                    None,
+                ))
+            },
+            StreamifyOptions {
+                stream_listeners: vec![listener],
+                ..Default::default()
+            },
+        )
+        .await;
+
+        assert!(!result.is_empty());
+        assert!(matches!(&result[0], StreamValue::Status(_)));
     }
 }

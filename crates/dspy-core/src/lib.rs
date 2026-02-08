@@ -91,7 +91,6 @@ pub use lm::{
     HistoryEntry, LMConfig, LMResponse, Message, Usage, LM,
 };
 pub use mock_interpreter::{MockErrorType, MockInterpreter, MockResponse};
-pub use sandboxed_interpreter::{SandboxedInterpreter, SandboxedInterpreterOptions};
 pub use module_trait::Module;
 pub use multi_chain_comparison::MultiChainComparison;
 pub use parallel::{parallel_execute, ParallelConfig, ParallelResult};
@@ -107,11 +106,17 @@ pub use repl_types::{
 };
 pub use retrieve::{get_global_retriever, set_global_retriever, Retrieve, RetrieverModule};
 pub use rlm::RLM;
-pub use settings::{configure, get_settings, reset_settings, with_settings, Settings};
+pub use sandboxed_interpreter::{SandboxedInterpreter, SandboxedInterpreterOptions};
+pub use settings::{
+    configure, get_settings, reset_settings, with_settings, SendStreamFn, Settings,
+};
 pub use signature::{
     input_field, output_field, FieldDef, FieldType, FieldUpdate, Signature, SignatureBuilder,
 };
-pub use streaming::{AdapterType as StreamAdapterType, StreamListener, StreamResponse};
+pub use streaming::{
+    streamify, AdapterType as StreamAdapterType, StatusMessage, StatusMessageProvider,
+    StreamListener, StreamResponse, StreamValue, StreamifyOptions,
+};
 pub use tool::{Tool, ToolArg, ToolCall, ToolCalls};
 pub use two_step_adapter::TwoStepAdapter;
 pub use usage_tracker::UsageTracker;

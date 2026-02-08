@@ -8,9 +8,13 @@ use crate::adapter::Adapter;
 use crate::cache::Cache;
 use crate::lm::LM;
 use crate::predict::Trace;
+use crate::streaming::StreamListener;
 use crate::usage_tracker::UsageTracker;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
+
+/// Callback for receiving streaming values (chunks, status messages, predictions).
+pub type SendStreamFn = Arc<dyn Fn(crate::streaming::StreamValue) + Send + Sync>;
 
 /// Global settings (default LM, adapter, etc.)
 #[derive(Clone)]
@@ -26,6 +30,10 @@ pub struct Settings {
     pub disable_history: bool,
     /// Max entries per LM history array. Default: 10000
     pub max_history_size: usize,
+    /// Stream sender for routing LM chunks. Set by streamify().
+    pub send_stream: Option<SendStreamFn>,
+    /// Active stream listeners for the current context.
+    pub stream_listeners: Option<Vec<Arc<Mutex<StreamListener>>>>,
 }
 
 /// Cache setting — either a specific cache instance or disabled.
@@ -53,6 +61,8 @@ impl Settings {
             usage_tracker: None,
             disable_history: false,
             max_history_size: 10000,
+            send_stream: None,
+            stream_listeners: None,
         }
     }
 
@@ -93,6 +103,16 @@ impl Settings {
 
     pub fn with_max_history_size(mut self, size: usize) -> Self {
         self.max_history_size = size;
+        self
+    }
+
+    pub fn with_send_stream(mut self, send_stream: SendStreamFn) -> Self {
+        self.send_stream = Some(send_stream);
+        self
+    }
+
+    pub fn with_stream_listeners(mut self, listeners: Vec<Arc<Mutex<StreamListener>>>) -> Self {
+        self.stream_listeners = Some(listeners);
         self
     }
 }
