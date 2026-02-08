@@ -169,10 +169,8 @@ impl BetterTogether {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::{
-        Example, LM, LMConfig, LMResponse, Message, Predict, Prediction, Signature,
-    };
     use async_trait::async_trait;
+    use dspy_core::{Example, LMConfig, LMResponse, Message, Predict, Prediction, Signature, LM};
     use std::sync::Arc;
 
     struct MockLM {
@@ -216,8 +214,7 @@ mod tests {
 
     impl SimpleQA {
         fn new() -> Self {
-            let mut predict =
-                Predict::new(Signature::from_string("question -> answer").unwrap());
+            let mut predict = Predict::new(Signature::from_string("question -> answer").unwrap());
             predict.set_lm(Arc::new(MockLM::new()));
             Self { predict }
         }

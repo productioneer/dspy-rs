@@ -6,11 +6,11 @@
 //!
 //! Python equivalent: dspy/teleprompt/infer_rules.py
 
-use dspy_core::{
-    ChainOfThought, Evaluate, EvaluateConfig, Example, Metric, Module, Predict, Prediction,
-    Signature, Result, DspyError,
-};
 use async_trait::async_trait;
+use dspy_core::{
+    ChainOfThought, DspyError, Evaluate, EvaluateConfig, Example, Metric, Module, Predict,
+    Prediction, Result, Signature,
+};
 use std::sync::Arc;
 
 use crate::bootstrap_few_shot::{BootstrapFewShot, BootstrapFewShotConfig};
@@ -80,7 +80,9 @@ impl InferRules {
             max_errors: self.config.max_errors,
         };
         let bootstrap = BootstrapFewShot::new(bootstrap_config);
-        let bootstrapped = bootstrap.compile(student, &actual_trainset, teacher).await?;
+        let bootstrapped = bootstrap
+            .compile(student, &actual_trainset, teacher)
+            .await?;
 
         // Save original program state
         let original_program = bootstrapped;
@@ -181,11 +183,7 @@ impl InferRules {
     }
 
     /// Format training examples into text for rule induction.
-    fn format_examples(
-        &self,
-        demos: &[Example],
-        signature: &Signature,
-    ) -> String {
+    fn format_examples(&self, demos: &[Example], signature: &Signature) -> String {
         let input_fields: Vec<String> = signature
             .input_fields()
             .map(|(name, _)| name.clone())
@@ -217,11 +215,7 @@ impl InferRules {
     }
 
     /// Get demos from trainset filtered to predictor's signature fields.
-    fn get_predictor_demos(
-        &self,
-        trainset: &[Example],
-        signature: &Signature,
-    ) -> Vec<Example> {
+    fn get_predictor_demos(&self, trainset: &[Example], signature: &Signature) -> Vec<Example> {
         let input_fields: Vec<String> = signature
             .input_fields()
             .map(|(name, _)| name.clone())
@@ -246,11 +240,7 @@ impl InferRules {
     }
 
     /// Evaluate a program on a dataset using the Evaluate class.
-    async fn evaluate_program(
-        &self,
-        program: &dyn Module,
-        dataset: &[Example],
-    ) -> Result<f64> {
+    async fn evaluate_program(&self, program: &dyn Module, dataset: &[Example]) -> Result<f64> {
         let evaluate = Evaluate::new(
             dataset.to_vec(),
             self.config.metric.clone(),
@@ -311,9 +301,7 @@ impl Module for RulesInductionProgram {
 
     fn deep_copy(&self) -> Box<dyn Module> {
         Box::new(RulesInductionProgram {
-            rules_induction: ChainOfThought::new(
-                self.rules_induction.predict().signature.clone(),
-            ),
+            rules_induction: ChainOfThought::new(self.rules_induction.predict().signature.clone()),
         })
     }
 }
@@ -321,7 +309,7 @@ impl Module for RulesInductionProgram {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::{LM, LMConfig, LMResponse, Message};
+    use dspy_core::{LMConfig, LMResponse, Message, LM};
     use std::sync::Mutex;
 
     /// Mock LM that returns fixed answers or rules based on the system message.
@@ -345,11 +333,7 @@ mod tests {
 
     #[async_trait]
     impl LM for MockLM {
-        async fn call(
-            &self,
-            messages: &[Message],
-            _config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
+        async fn call(&self, messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
             *self.call_count.lock().unwrap() += 1;
 
             let system_msg = messages.iter().find(|m| m.role == "system");
@@ -399,8 +383,7 @@ mod tests {
 
     impl TestModule {
         fn new(lm: Arc<dyn LM>) -> Self {
-            let mut predict =
-                Predict::new(Signature::from_string("question -> answer").unwrap());
+            let mut predict = Predict::new(Signature::from_string("question -> answer").unwrap());
             predict.set_lm(lm);
             Self { predict }
         }
@@ -438,14 +421,24 @@ mod tests {
     #[tokio::test]
     async fn test_infer_rules_basic() {
         dspy_core::reset_settings();
-        let lm = Arc::new(MockLM::new("A0", Some("Rule 1: Be concise\nRule 2: Be accurate")));
-        dspy_core::configure(dspy_core::Settings { lm: Some(lm.clone()), ..Default::default() });
+        let lm = Arc::new(MockLM::new(
+            "A0",
+            Some("Rule 1: Be concise\nRule 2: Be accurate"),
+        ));
+        dspy_core::configure(dspy_core::Settings {
+            lm: Some(lm.clone()),
+            ..Default::default()
+        });
 
         let student = TestModule::new(lm);
         let metric: Metric = Arc::new(|example, prediction| {
             let expected = example.get_str("answer").unwrap_or("");
             let got = prediction.get_str("answer").unwrap_or("");
-            if expected == got { 1.0 } else { 0.0 }
+            if expected == got {
+                1.0
+            } else {
+                0.0
+            }
         });
 
         let config = InferRulesConfig {
@@ -458,7 +451,10 @@ mod tests {
         };
         let optimizer = InferRules::new(config);
         let trainset = make_trainset(4);
-        let compiled = optimizer.compile(&student, &trainset, None, None).await.unwrap();
+        let compiled = optimizer
+            .compile(&student, &trainset, None, None)
+            .await
+            .unwrap();
         assert!(!compiled.named_predictors().is_empty());
     }
 
@@ -466,7 +462,10 @@ mod tests {
     async fn test_infer_rules_with_valset() {
         dspy_core::reset_settings();
         let lm = Arc::new(MockLM::new("A0", Some("Rule 1: Answer correctly")));
-        dspy_core::configure(dspy_core::Settings { lm: Some(lm.clone()), ..Default::default() });
+        dspy_core::configure(dspy_core::Settings {
+            lm: Some(lm.clone()),
+            ..Default::default()
+        });
 
         let student = TestModule::new(lm);
         let metric: Metric = Arc::new(|_, _| 1.0);
@@ -495,7 +494,10 @@ mod tests {
         dspy_core::reset_settings();
         let rules = "1. Always explain your reasoning\n2. Be specific";
         let lm = Arc::new(MockLM::new("test", Some(rules)));
-        dspy_core::configure(dspy_core::Settings { lm: Some(lm.clone()), ..Default::default() });
+        dspy_core::configure(dspy_core::Settings {
+            lm: Some(lm.clone()),
+            ..Default::default()
+        });
 
         let student = TestModule::new(lm);
         let metric: Metric = Arc::new(|_, _| 1.0);
@@ -511,7 +513,10 @@ mod tests {
 
         let optimizer = InferRules::new(config);
         let trainset = make_trainset(4);
-        let compiled = optimizer.compile(&student, &trainset, None, None).await.unwrap();
+        let compiled = optimizer
+            .compile(&student, &trainset, None, None)
+            .await
+            .unwrap();
 
         let preds = compiled.named_predictors();
         let instructions = preds[0].1.signature.instructions().to_string();
@@ -523,7 +528,10 @@ mod tests {
     async fn test_infer_rules_splits_trainset() {
         dspy_core::reset_settings();
         let lm = Arc::new(MockLM::new("test", Some("Rule 1: test")));
-        dspy_core::configure(dspy_core::Settings { lm: Some(lm.clone()), ..Default::default() });
+        dspy_core::configure(dspy_core::Settings {
+            lm: Some(lm.clone()),
+            ..Default::default()
+        });
 
         let student = TestModule::new(lm);
         let metric: Metric = Arc::new(|_, _| 1.0);
@@ -539,7 +547,10 @@ mod tests {
 
         let optimizer = InferRules::new(config);
         let trainset = make_trainset(6);
-        let compiled = optimizer.compile(&student, &trainset, None, None).await.unwrap();
+        let compiled = optimizer
+            .compile(&student, &trainset, None, None)
+            .await
+            .unwrap();
         assert!(!compiled.named_predictors().is_empty());
     }
 
@@ -547,11 +558,13 @@ mod tests {
     async fn test_infer_rules_does_not_modify_original() {
         dspy_core::reset_settings();
         let lm = Arc::new(MockLM::new("test", Some("Rule 1: test")));
-        dspy_core::configure(dspy_core::Settings { lm: Some(lm.clone()), ..Default::default() });
+        dspy_core::configure(dspy_core::Settings {
+            lm: Some(lm.clone()),
+            ..Default::default()
+        });
 
         let student = TestModule::new(lm);
-        let original_instructions = student
-            .named_predictors()[0]
+        let original_instructions = student.named_predictors()[0]
             .1
             .signature
             .instructions()
@@ -569,7 +582,10 @@ mod tests {
 
         let optimizer = InferRules::new(config);
         let trainset = make_trainset(4);
-        let _compiled = optimizer.compile(&student, &trainset, None, None).await.unwrap();
+        let _compiled = optimizer
+            .compile(&student, &trainset, None, None)
+            .await
+            .unwrap();
 
         // Original should be unmodified
         assert_eq!(

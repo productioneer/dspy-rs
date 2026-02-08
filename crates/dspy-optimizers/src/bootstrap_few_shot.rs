@@ -3,9 +3,9 @@
 //! Python equivalent: dspy/teleprompt/bootstrap.py
 
 use dspy_core::{Example, Metric, Module};
+use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
-use rand::rngs::StdRng;
 use std::collections::HashMap;
 
 use crate::labeled_few_shot::LabeledFewShot;
@@ -82,11 +82,10 @@ impl BootstrapFewShot {
             }
 
             for _round in 0..self.config.max_rounds {
-                match self.bootstrap_one_example(
-                    teacher_prog.as_ref(),
-                    example,
-                    &self.config.metric,
-                ) .await {
+                match self
+                    .bootstrap_one_example(teacher_prog.as_ref(), example, &self.config.metric)
+                    .await
+                {
                     Ok(true) => {
                         // Collect traces from teacher predictors
                         let mut got_traces = false;
@@ -125,9 +124,9 @@ impl BootstrapFewShot {
                             pred.clear_traces();
                         }
                         if error_count >= self.config.max_errors {
-                            return Err(dspy_core::DspyError::OptimizationError(
-                                format!("Too many errors during bootstrap: {error_count}"),
-                            ));
+                            return Err(dspy_core::DspyError::OptimizationError(format!(
+                                "Too many errors during bootstrap: {error_count}"
+                            )));
                         }
                     }
                 }
@@ -147,7 +146,10 @@ impl BootstrapFewShot {
                 .map(|t| t[..self.config.max_bootstrapped_demos.min(t.len())].to_vec())
                 .unwrap_or_default();
 
-            let remaining_budget = self.config.max_labeled_demos.saturating_sub(bootstrapped.len());
+            let remaining_budget = self
+                .config
+                .max_labeled_demos
+                .saturating_sub(bootstrapped.len());
             let labeled_count = remaining_budget.min(raw_demos.len());
             let labeled: Vec<Example> = raw_demos[..labeled_count].to_vec();
 
@@ -192,10 +194,8 @@ impl BootstrapFewShot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::{
-        Example, LM, LMConfig, LMResponse, Message, Predict, Prediction, Signature,
-    };
     use async_trait::async_trait;
+    use dspy_core::{Example, LMConfig, LMResponse, Message, Predict, Prediction, Signature, LM};
     use std::sync::Arc;
 
     // Mock LM that returns predictable answers
@@ -215,15 +215,25 @@ mod tests {
 
     #[async_trait]
     impl LM for AnswerLM {
-        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> dspy_core::Result<Vec<LMResponse>> {
+        async fn call(
+            &self,
+            _messages: &[Message],
+            _config: &LMConfig,
+        ) -> dspy_core::Result<Vec<LMResponse>> {
             Ok(vec![LMResponse {
                 text: format!("[[ ## answer ## ]]\n{}", self.answer),
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "mock" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     struct TestModule {
@@ -250,7 +260,9 @@ mod tests {
             vec![("predict", &mut self.predict)]
         }
         fn deep_copy(&self) -> Box<dyn Module> {
-            Box::new(TestModule { predict: self.predict.clone() })
+            Box::new(TestModule {
+                predict: self.predict.clone(),
+            })
         }
     }
 
@@ -274,7 +286,11 @@ mod tests {
         let metric: Metric = Arc::new(|example, prediction| {
             let expected = example.get_str("answer").unwrap_or("");
             let got = prediction.get_str("answer").unwrap_or("");
-            if expected == got { 1.0 } else { 0.0 }
+            if expected == got {
+                1.0
+            } else {
+                0.0
+            }
         });
 
         let trainset = make_trainset(5);

@@ -3,8 +3,7 @@
 //! Python equivalent: dspy/teleprompt/copro_optimizer.py
 
 use dspy_core::{
-    Evaluate, EvaluateConfig, Example, LM, LMConfig,
-    Message, Metric, Module, Signature,
+    Evaluate, EvaluateConfig, Example, LMConfig, Message, Metric, Module, Signature, LM,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -91,20 +90,16 @@ impl COPRO {
                 // Generate candidate instructions
                 let candidates = if d == 0 {
                     // First round: generate from basic instruction
-                    self.generate_initial_candidates(
-                        &current_instruction,
-                        &field_summary,
-                        trainset,
-                    )
-                    .await?
+                    self.generate_initial_candidates(&current_instruction, &field_summary, trainset)
+                        .await?
                 } else {
                     // Subsequent rounds: generate given previous attempts + scores
-                    let prev_candidates = evaluated_candidates.get(pred_name).cloned().unwrap_or_default();
-                    self.generate_refined_candidates(
-                        &prev_candidates,
-                        &field_summary,
-                    )
-                    .await?
+                    let prev_candidates = evaluated_candidates
+                        .get(pred_name)
+                        .cloned()
+                        .unwrap_or_default();
+                    self.generate_refined_candidates(&prev_candidates, &field_summary)
+                        .await?
                 };
 
                 // Evaluate each candidate
@@ -112,7 +107,8 @@ impl COPRO {
                     // Set instruction on clone
                     for (name, pred) in module_clone.named_predictors_mut() {
                         if name == pred_name.as_str() {
-                            pred.signature = pred.signature.with_instructions(candidate_instruction);
+                            pred.signature =
+                                pred.signature.with_instructions(candidate_instruction);
                         }
                     }
 
@@ -140,11 +136,14 @@ impl COPRO {
                 // Set predictor to best-performing instruction for next round
                 if let Some(candidates) = evaluated_candidates.get(pred_name) {
                     if let Some(best) = candidates.iter().max_by(|a, b| {
-                        a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal)
+                        a.score
+                            .partial_cmp(&b.score)
+                            .unwrap_or(std::cmp::Ordering::Equal)
                     }) {
                         for (name, pred) in module_clone.named_predictors_mut() {
                             if name == pred_name.as_str() {
-                                pred.signature = pred.signature.with_instructions(&best.instruction);
+                                pred.signature =
+                                    pred.signature.with_instructions(&best.instruction);
                             }
                         }
                     }
@@ -156,7 +155,9 @@ impl COPRO {
         for (name, pred) in module.named_predictors_mut() {
             if let Some(candidates) = evaluated_candidates.get(name) {
                 if let Some(best) = candidates.iter().max_by(|a, b| {
-                    a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal)
+                    a.score
+                        .partial_cmp(&b.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 }) {
                     pred.signature = pred.signature.with_instructions(&best.instruction);
                 }
@@ -192,9 +193,11 @@ impl COPRO {
                 .await
         } else {
             // Without LM, just return the best previous instruction with minor variations
-            let best = prev_candidates
-                .iter()
-                .max_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+            let best = prev_candidates.iter().max_by(|a, b| {
+                a.score
+                    .partial_cmp(&b.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
             let base = best.map(|c| c.instruction.as_str()).unwrap_or("");
             Ok(self.generate_heuristic_candidates(base, field_summary))
         }
@@ -267,12 +270,24 @@ impl COPRO {
     ) -> dspy_core::Result<Vec<String>> {
         // Build attempts summary, sorted by score ascending
         let mut sorted = prev_candidates.to_vec();
-        sorted.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+        sorted.sort_by(|a, b| {
+            a.score
+                .partial_cmp(&b.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let attempts: String = sorted
             .iter()
             .enumerate()
-            .map(|(i, c)| format!("Instruction #{}: {}\nScore #{}: {}", i + 1, c.instruction, i + 1, c.score))
+            .map(|(i, c)| {
+                format!(
+                    "Instruction #{}: {}\nScore #{}: {}",
+                    i + 1,
+                    c.instruction,
+                    i + 1,
+                    c.score
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n");
 
@@ -326,12 +341,24 @@ impl COPRO {
             .map(|l| l.trim())
             .collect();
 
-        let input_names = if inputs.is_empty() { "the input".to_string() } else { inputs.join(", ") };
-        let output_names = if outputs.is_empty() { "the output".to_string() } else { outputs.join(", ") };
+        let input_names = if inputs.is_empty() {
+            "the input".to_string()
+        } else {
+            inputs.join(", ")
+        };
+        let output_names = if outputs.is_empty() {
+            "the output".to_string()
+        } else {
+            outputs.join(", ")
+        };
 
         candidates.push(format!("Given {input_names}, produce {output_names}."));
-        candidates.push(format!("Analyze the provided input carefully and generate {output_names}."));
-        candidates.push(format!("Process the input and provide accurate {output_names}. Think carefully."));
+        candidates.push(format!(
+            "Analyze the provided input carefully and generate {output_names}."
+        ));
+        candidates.push(format!(
+            "Process the input and provide accurate {output_names}. Think carefully."
+        ));
         if !current.is_empty() {
             candidates.push(format!("{current} Be more precise and detailed."));
         }
@@ -368,10 +395,8 @@ struct CandidateScore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::{
-        Example, LMResponse, Predict, Prediction, Signature,
-    };
     use async_trait::async_trait;
+    use dspy_core::{Example, LMResponse, Predict, Prediction, Signature};
 
     struct FixedLM {
         answer: String,
@@ -389,15 +414,25 @@ mod tests {
 
     #[async_trait]
     impl LM for FixedLM {
-        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> dspy_core::Result<Vec<LMResponse>> {
+        async fn call(
+            &self,
+            _messages: &[Message],
+            _config: &LMConfig,
+        ) -> dspy_core::Result<Vec<LMResponse>> {
             Ok(vec![LMResponse {
                 text: format!("[[ ## answer ## ]]\n{}", self.answer),
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "fixed" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "fixed"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     // A simple LM that returns instruction candidates when called as prompt model
@@ -407,21 +442,33 @@ mod tests {
 
     impl InstructionLM {
         fn new() -> Self {
-            Self { config: LMConfig::new("instruction-gen") }
+            Self {
+                config: LMConfig::new("instruction-gen"),
+            }
         }
     }
 
     #[async_trait]
     impl LM for InstructionLM {
-        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> dspy_core::Result<Vec<LMResponse>> {
+        async fn call(
+            &self,
+            _messages: &[Message],
+            _config: &LMConfig,
+        ) -> dspy_core::Result<Vec<LMResponse>> {
             Ok(vec![LMResponse {
                 text: "Answer the question carefully and precisely.".to_string(),
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "instruction-gen" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "instruction-gen"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     struct TestModule {
@@ -448,7 +495,9 @@ mod tests {
             vec![("predict", &mut self.predict)]
         }
         fn deep_copy(&self) -> Box<dyn dspy_core::Module> {
-            Box::new(TestModule { predict: self.predict.clone() })
+            Box::new(TestModule {
+                predict: self.predict.clone(),
+            })
         }
     }
 
@@ -472,7 +521,11 @@ mod tests {
         let metric: Metric = Arc::new(|example, prediction| {
             let expected = example.get_str("answer").unwrap_or("");
             let got = prediction.get_str("answer").unwrap_or("");
-            if expected == got { 1.0 } else { 0.0 }
+            if expected == got {
+                1.0
+            } else {
+                0.0
+            }
         });
 
         let trainset = make_trainset(3);
@@ -502,7 +555,11 @@ mod tests {
         let metric: Metric = Arc::new(|example, prediction| {
             let expected = example.get_str("answer").unwrap_or("");
             let got = prediction.get_str("answer").unwrap_or("");
-            if expected == got { 1.0 } else { 0.0 }
+            if expected == got {
+                1.0
+            } else {
+                0.0
+            }
         });
 
         let trainset = make_trainset(3);
@@ -531,7 +588,11 @@ mod tests {
         let metric: Metric = Arc::new(|_, _| 1.0);
         let trainset = make_trainset(2);
 
-        let original_instructions = student.named_predictors()[0].1.signature.instructions().to_string();
+        let original_instructions = student.named_predictors()[0]
+            .1
+            .signature
+            .instructions()
+            .to_string();
 
         let optimizer = COPRO::new(COPROConfig {
             metric,

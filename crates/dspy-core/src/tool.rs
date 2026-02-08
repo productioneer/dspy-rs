@@ -27,7 +27,13 @@ pub struct Tool {
     pub name: String,
     pub desc: String,
     pub args: HashMap<String, ToolArg>,
-    func: Box<dyn Fn(HashMap<String, serde_json::Value>) -> Pin<Box<dyn Future<Output = Result<serde_json::Value>> + Send>> + Send + Sync>,
+    func: Box<
+        dyn Fn(
+                HashMap<String, serde_json::Value>,
+            ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value>> + Send>>
+            + Send
+            + Sync,
+    >,
 }
 
 impl Tool {
@@ -50,17 +56,15 @@ impl Tool {
     }
 
     /// Call the tool with the given arguments, wrapped with tool callbacks.
-    pub async fn call(&self, kwargs: HashMap<String, serde_json::Value>) -> Result<serde_json::Value> {
+    pub async fn call(
+        &self,
+        kwargs: HashMap<String, serde_json::Value>,
+    ) -> Result<serde_json::Value> {
         let inputs = serde_json::to_value(&kwargs).unwrap_or_default();
-        with_callbacks_async(
-            ComponentType::Tool,
-            &self.name,
-            &inputs,
-            || async {
-                self.validate_args(&kwargs)?;
-                (self.func)(kwargs).await
-            },
-        )
+        with_callbacks_async(ComponentType::Tool, &self.name, &inputs, || async {
+            self.validate_args(&kwargs)?;
+            (self.func)(kwargs).await
+        })
         .await
     }
 
@@ -97,7 +101,12 @@ impl Tool {
 impl std::fmt::Display for Tool {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.desc.is_empty() {
-            write!(f, "{}. It takes arguments {:?}.", self.name, self.args.keys().collect::<Vec<_>>())
+            write!(
+                f,
+                "{}. It takes arguments {:?}.",
+                self.name,
+                self.args.keys().collect::<Vec<_>>()
+            )
         } else {
             write!(
                 f,

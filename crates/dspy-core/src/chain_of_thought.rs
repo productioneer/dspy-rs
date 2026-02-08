@@ -19,9 +19,7 @@ impl ChainOfThought {
         // Prepend a "reasoning" output field before existing output fields
         // Python DSPy uses desc="${reasoning}" which renders as empty in the adapter.
         // The prefix carries the actual prompt text. Match this for parity.
-        let extended = signature.prepend(
-            output_field("reasoning"),
-        );
+        let extended = signature.prepend(output_field("reasoning"));
         Self {
             predict: Predict::new(extended),
         }

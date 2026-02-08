@@ -24,13 +24,7 @@ pub enum ComponentType {
 /// Default implementations are no-ops.
 pub trait Callback: Send + Sync {
     /// Called when a Module's forward() is invoked.
-    fn on_module_start(
-        &self,
-        _call_id: &str,
-        _instance_type: &str,
-        _inputs: &serde_json::Value,
-    ) {
-    }
+    fn on_module_start(&self, _call_id: &str, _instance_type: &str, _inputs: &serde_json::Value) {}
 
     /// Called after a Module's forward() completes.
     fn on_module_end(
@@ -42,13 +36,7 @@ pub trait Callback: Send + Sync {
     }
 
     /// Called when an LM's call is invoked.
-    fn on_lm_start(
-        &self,
-        _call_id: &str,
-        _instance_type: &str,
-        _inputs: &serde_json::Value,
-    ) {
-    }
+    fn on_lm_start(&self, _call_id: &str, _instance_type: &str, _inputs: &serde_json::Value) {}
 
     /// Called after an LM's call completes.
     fn on_lm_end(
@@ -96,13 +84,7 @@ pub trait Callback: Send + Sync {
     }
 
     /// Called when a Tool is invoked.
-    fn on_tool_start(
-        &self,
-        _call_id: &str,
-        _instance_type: &str,
-        _inputs: &serde_json::Value,
-    ) {
-    }
+    fn on_tool_start(&self, _call_id: &str, _instance_type: &str, _inputs: &serde_json::Value) {}
 
     /// Called after a Tool completes.
     fn on_tool_end(
@@ -114,12 +96,7 @@ pub trait Callback: Send + Sync {
     }
 
     /// Called when evaluation starts.
-    fn on_evaluate_start(
-        &self,
-        _call_id: &str,
-        _instance_type: &str,
-        _inputs: &serde_json::Value,
-    ) {
+    fn on_evaluate_start(&self, _call_id: &str, _instance_type: &str, _inputs: &serde_json::Value) {
     }
 
     /// Called after evaluation completes.
@@ -176,8 +153,12 @@ pub fn invoke_start_callbacks(
         match component_type {
             ComponentType::Module => cb.on_module_start(call_id, instance_type, inputs),
             ComponentType::Lm => cb.on_lm_start(call_id, instance_type, inputs),
-            ComponentType::AdapterFormat => cb.on_adapter_format_start(call_id, instance_type, inputs),
-            ComponentType::AdapterParse => cb.on_adapter_parse_start(call_id, instance_type, inputs),
+            ComponentType::AdapterFormat => {
+                cb.on_adapter_format_start(call_id, instance_type, inputs)
+            }
+            ComponentType::AdapterParse => {
+                cb.on_adapter_parse_start(call_id, instance_type, inputs)
+            }
             ComponentType::Tool => cb.on_tool_start(call_id, instance_type, inputs),
             ComponentType::Evaluate => cb.on_evaluate_start(call_id, instance_type, inputs),
         }
@@ -292,11 +273,21 @@ mod tests {
     }
 
     impl Callback for CountingCallback {
-        fn on_module_start(&self, _call_id: &str, _instance_type: &str, _inputs: &serde_json::Value) {
+        fn on_module_start(
+            &self,
+            _call_id: &str,
+            _instance_type: &str,
+            _inputs: &serde_json::Value,
+        ) {
             self.start_count.fetch_add(1, Ordering::SeqCst);
         }
 
-        fn on_module_end(&self, _call_id: &str, _outputs: Option<&serde_json::Value>, _exception: Option<&str>) {
+        fn on_module_end(
+            &self,
+            _call_id: &str,
+            _outputs: Option<&serde_json::Value>,
+            _exception: Option<&str>,
+        ) {
             self.end_count.fetch_add(1, Ordering::SeqCst);
         }
 
@@ -304,7 +295,12 @@ mod tests {
             self.start_count.fetch_add(1, Ordering::SeqCst);
         }
 
-        fn on_lm_end(&self, _call_id: &str, _outputs: Option<&serde_json::Value>, _exception: Option<&str>) {
+        fn on_lm_end(
+            &self,
+            _call_id: &str,
+            _outputs: Option<&serde_json::Value>,
+            _exception: Option<&str>,
+        ) {
             self.end_count.fetch_add(1, Ordering::SeqCst);
         }
     }
@@ -315,10 +311,22 @@ mod tests {
         let callbacks: Vec<Arc<dyn Callback>> = vec![cb.clone()];
         let inputs = serde_json::json!({"query": "test"});
 
-        invoke_start_callbacks(ComponentType::Module, &callbacks, "call1", "TestModule", &inputs);
+        invoke_start_callbacks(
+            ComponentType::Module,
+            &callbacks,
+            "call1",
+            "TestModule",
+            &inputs,
+        );
         assert_eq!(cb.start_count.load(Ordering::SeqCst), 1);
 
-        invoke_end_callbacks(ComponentType::Module, &callbacks, "call1", Some(&serde_json::json!({"result": "ok"})), None);
+        invoke_end_callbacks(
+            ComponentType::Module,
+            &callbacks,
+            "call1",
+            Some(&serde_json::json!({"result": "ok"})),
+            None,
+        );
         assert_eq!(cb.end_count.load(Ordering::SeqCst), 1);
 
         invoke_start_callbacks(ComponentType::Lm, &callbacks, "call2", "TestLM", &inputs);

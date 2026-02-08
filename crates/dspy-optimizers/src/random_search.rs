@@ -7,10 +7,10 @@ use dspy_core::{Evaluate, EvaluateConfig, Example, Metric, Module};
 use crate::bootstrap_few_shot::{BootstrapFewShot, BootstrapFewShotConfig};
 use crate::labeled_few_shot::LabeledFewShot;
 
-use rand::Rng;
-use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
+use rand::Rng;
+use rand::SeedableRng;
 
 pub struct RandomSearchConfig {
     pub metric: Metric,
@@ -148,10 +148,8 @@ impl BootstrapFewShotWithRandomSearch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::{
-        Example, LM, LMConfig, LMResponse, Message, Predict, Prediction, Signature,
-    };
     use async_trait::async_trait;
+    use dspy_core::{Example, LMConfig, LMResponse, Message, Predict, Prediction, Signature, LM};
     use std::sync::Arc;
 
     struct EchoLM {
@@ -160,15 +158,22 @@ mod tests {
 
     impl EchoLM {
         fn new() -> Self {
-            Self { config: LMConfig::new("echo") }
+            Self {
+                config: LMConfig::new("echo"),
+            }
         }
     }
 
     #[async_trait]
     impl LM for EchoLM {
-        async fn call(&self, messages: &[Message], _config: &LMConfig) -> dspy_core::Result<Vec<LMResponse>> {
+        async fn call(
+            &self,
+            messages: &[Message],
+            _config: &LMConfig,
+        ) -> dspy_core::Result<Vec<LMResponse>> {
             // Echo back last user message content as the answer
-            let text = messages.last()
+            let text = messages
+                .last()
                 .map(|m| m.content.clone())
                 .unwrap_or_default();
             Ok(vec![LMResponse {
@@ -176,9 +181,15 @@ mod tests {
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "echo" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "echo"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     struct TestModule {
@@ -205,7 +216,9 @@ mod tests {
             vec![("predict", &mut self.predict)]
         }
         fn deep_copy(&self) -> Box<dyn Module> {
-            Box::new(TestModule { predict: self.predict.clone() })
+            Box::new(TestModule {
+                predict: self.predict.clone(),
+            })
         }
     }
 
@@ -241,7 +254,10 @@ mod tests {
             metric_threshold: None,
         });
 
-        let compiled = optimizer.compile(&student, &trainset, None, None).await.unwrap();
+        let compiled = optimizer
+            .compile(&student, &trainset, None, None)
+            .await
+            .unwrap();
         // Just verify it returns a program
         assert!(!compiled.named_predictors().is_empty());
     }
@@ -266,7 +282,10 @@ mod tests {
             metric_threshold: None,
         });
 
-        let compiled = optimizer.compile(&student, &trainset, None, None).await.unwrap();
+        let compiled = optimizer
+            .compile(&student, &trainset, None, None)
+            .await
+            .unwrap();
         assert!(!compiled.named_predictors().is_empty());
     }
 

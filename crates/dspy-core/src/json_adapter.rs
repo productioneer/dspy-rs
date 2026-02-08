@@ -33,11 +33,17 @@ impl JSONAdapter {
 
         // Input fields section
         parts.push("Your input fields are:".to_string());
-        parts.push(self.chat_adapter.format_field_description_string(signature.input_fields()));
+        parts.push(
+            self.chat_adapter
+                .format_field_description_string(signature.input_fields()),
+        );
 
         // Output fields section
         parts.push("Your output fields are:".to_string());
-        parts.push(self.chat_adapter.format_field_description_string(signature.output_fields()));
+        parts.push(
+            self.chat_adapter
+                .format_field_description_string(signature.output_fields()),
+        );
 
         // Interaction structure
         parts.push(
@@ -115,10 +121,7 @@ impl JSONAdapter {
             let mut output_map = serde_json::Map::new();
             for (name, _) in signature.output_fields() {
                 if let Some(val) = demo.get(&name) {
-                    output_map.insert(
-                        name.clone(),
-                        serde_json::Value::String(val.to_string()),
-                    );
+                    output_map.insert(name.clone(), serde_json::Value::String(val.to_string()));
                 }
             }
             let json_str = serde_json::to_string_pretty(&serde_json::Value::Object(output_map))
@@ -164,18 +167,14 @@ impl JSONAdapter {
         output: &str,
         signature: &Signature,
     ) -> Result<HashMap<String, Value>> {
-        let output_field_names: Vec<String> = signature
-            .output_fields()
-            .map(|(k, _)| k.clone())
-            .collect();
+        let output_field_names: Vec<String> =
+            signature.output_fields().map(|(k, _)| k.clone()).collect();
 
         // Try direct JSON parse
-        let parsed = self.try_parse_json(output)
-            .or_else(|| {
-                // Try to extract JSON object from text
-                Self::extract_json_object(output)
-                    .and_then(|s| self.try_parse_json(&s))
-            });
+        let parsed = self.try_parse_json(output).or_else(|| {
+            // Try to extract JSON object from text
+            Self::extract_json_object(output).and_then(|s| self.try_parse_json(&s))
+        });
 
         match parsed {
             Some(map) => {
@@ -262,9 +261,7 @@ fn json_value_to_dspy_value(v: &serde_json::Value) -> Value {
         }
         serde_json::Value::Bool(b) => Value::from(b.to_string()),
         serde_json::Value::Null => Value::from("null".to_string()),
-        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
-            Value::from(v.to_string())
-        }
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => Value::from(v.to_string()),
     }
 }
 
@@ -293,12 +290,9 @@ impl Adapter for JSONAdapter {
             "messages": messages.len(),
             "model": lm.model(),
         });
-        let responses = with_callbacks_async(
-            ComponentType::Lm,
-            lm.model(),
-            &lm_inputs,
-            || lm.call(&messages, config),
-        )
+        let responses = with_callbacks_async(ComponentType::Lm, lm.model(), &lm_inputs, || {
+            lm.call(&messages, config)
+        })
         .await?;
 
         let mut results = Vec::new();
@@ -380,8 +374,7 @@ mod tests {
         assert_eq!(messages.len(), 4);
         assert_eq!(messages[2].role, "assistant");
         // Demo assistant should be JSON
-        let parsed: serde_json::Value =
-            serde_json::from_str(&messages[2].content).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&messages[2].content).unwrap();
         assert_eq!(parsed["answer"], "2");
     }
 
@@ -429,9 +422,7 @@ mod tests {
     fn test_parse_fallback_to_raw_text() {
         let adapter = JSONAdapter::new();
         let sig = Signature::from_string("question -> answer").unwrap();
-        let result = adapter
-            .parse_output("The answer is 42", &sig)
-            .unwrap();
+        let result = adapter.parse_output("The answer is 42", &sig).unwrap();
         assert_eq!(result["answer"].as_str(), Some("The answer is 42"));
     }
 

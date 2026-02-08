@@ -47,10 +47,7 @@ pub fn majority(
     // Normalize values
     let normalized: Vec<Option<String>> = completions
         .iter()
-        .map(|c| {
-            c.get(&target_field)
-                .and_then(|v| norm_fn(v))
-        })
+        .map(|c| c.get(&target_field).and_then(|v| norm_fn(v)))
         .collect();
 
     let non_null: Vec<&String> = normalized.iter().filter_map(|v| v.as_ref()).collect();
@@ -129,7 +126,12 @@ mod tests {
         ];
         let result = majority(&completions, Some("answer"), None).unwrap();
         // Both "Paris" and "paris" normalize to "paris"
-        let ans = result.get("answer").unwrap().to_lowercase().trim().to_string();
+        let ans = result
+            .get("answer")
+            .unwrap()
+            .to_lowercase()
+            .trim()
+            .to_string();
         assert_eq!(ans, "paris");
     }
 

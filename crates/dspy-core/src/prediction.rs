@@ -140,10 +140,8 @@ mod tests {
 
     #[test]
     fn test_from_completions() {
-        let c1: HashMap<String, Value> =
-            [("answer".to_string(), Value::from("42"))].into();
-        let c2: HashMap<String, Value> =
-            [("answer".to_string(), Value::from("43"))].into();
+        let c1: HashMap<String, Value> = [("answer".to_string(), Value::from("42"))].into();
+        let c2: HashMap<String, Value> = [("answer".to_string(), Value::from("43"))].into();
         let pred = Prediction::from_completions(vec![c1, c2], None);
         // Primary value from first completion
         assert_eq!(pred.get_str("answer"), Some("42"));

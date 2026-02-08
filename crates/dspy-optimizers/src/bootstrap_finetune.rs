@@ -6,8 +6,7 @@
 //! Full implementation requires a Provider trait backend that can launch real training jobs.
 
 use dspy_core::{
-    bootstrap_trace_data, BootstrapTraceOptions, Example, Metric, Module, Predict,
-    TraceData,
+    bootstrap_trace_data, BootstrapTraceOptions, Example, Metric, Module, Predict, TraceData,
 };
 use std::collections::HashMap;
 
@@ -111,8 +110,7 @@ impl BootstrapFinetune {
             let key = format!("{model}:{data_pred_ind:?}");
 
             if !key_to_data.contains_key(&key) {
-                let train_data =
-                    self.prepare_finetune_data(&filtered, data_pred_ind);
+                let train_data = self.prepare_finetune_data(&filtered, data_pred_ind);
                 key_to_data.insert(key, train_data);
             }
         }
@@ -287,10 +285,8 @@ pub fn get_unique_lm_models(program: &dyn Module) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::{
-        Example, LM, LMConfig, LMResponse, Message, Prediction, Signature,
-    };
     use async_trait::async_trait;
+    use dspy_core::{Example, LMConfig, LMResponse, Message, Prediction, Signature, LM};
     use std::sync::Arc;
 
     struct MockLM {
@@ -334,8 +330,7 @@ mod tests {
 
     impl SimpleQA {
         fn new() -> Self {
-            let mut predict =
-                Predict::new(Signature::from_string("question -> answer").unwrap());
+            let mut predict = Predict::new(Signature::from_string("question -> answer").unwrap());
             predict.set_lm(Arc::new(MockLM::new()));
             Self { predict }
         }
@@ -364,8 +359,7 @@ mod tests {
 
     impl TwoStepModule {
         fn new() -> Self {
-            let mut step1 =
-                Predict::new(Signature::from_string("question -> reasoning").unwrap());
+            let mut step1 = Predict::new(Signature::from_string("question -> reasoning").unwrap());
             let mut step2 =
                 Predict::new(Signature::from_string("question, reasoning -> answer").unwrap());
             step1.set_lm(Arc::new(MockLM::new()));
@@ -460,9 +454,7 @@ mod tests {
     #[test]
     fn test_build_call_data_from_trace() {
         let entry = dspy_core::TraceEntry {
-            predictor: Predict::new(
-                Signature::from_string("question -> answer").unwrap(),
-            ),
+            predictor: Predict::new(Signature::from_string("question -> answer").unwrap()),
             inputs: Example::new().field("question", "What?"),
             outputs: Prediction::from_completions(
                 vec![{

@@ -4,8 +4,8 @@
 //! Python equivalent: dspy/teleprompt/vanilla.py
 
 use dspy_core::{Example, Module};
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 pub struct LabeledFewShot {
     k: usize,
@@ -185,8 +185,14 @@ mod tests {
     fn test_labeled_few_shot_k_larger_than_trainset() {
         let student = SimpleModule::new("q -> a");
         let trainset = vec![
-            Example::new().field("q", "Q1").field("a", "A1").with_inputs(&["q"]),
-            Example::new().field("q", "Q2").field("a", "A2").with_inputs(&["q"]),
+            Example::new()
+                .field("q", "Q1")
+                .field("a", "A1")
+                .with_inputs(&["q"]),
+            Example::new()
+                .field("q", "Q2")
+                .field("a", "A2")
+                .with_inputs(&["q"]),
         ];
 
         let optimizer = LabeledFewShot::new(10);
@@ -234,9 +240,7 @@ mod tests {
     #[test]
     fn test_labeled_few_shot_does_not_modify_original() {
         let student = SimpleModule::new("q -> a");
-        let trainset = vec![
-            Example::new().field("q", "Q1").with_inputs(&["q"]),
-        ];
+        let trainset = vec![Example::new().field("q", "Q1").with_inputs(&["q"])];
 
         let optimizer = LabeledFewShot::new(1);
         let _compiled = optimizer.compile(&student, &trainset, true);
@@ -268,12 +272,21 @@ mod tests {
         assert_eq!(preds[1].1.demos.len(), 3);
 
         // Different predictors should get different demo sets
-        let demos1: Vec<String> = preds[0].1.demos.iter()
+        let demos1: Vec<String> = preds[0]
+            .1
+            .demos
+            .iter()
             .filter_map(|d| d.get_str("q").map(String::from))
             .collect();
-        let demos2: Vec<String> = preds[1].1.demos.iter()
+        let demos2: Vec<String> = preds[1]
+            .1
+            .demos
+            .iter()
             .filter_map(|d| d.get_str("q").map(String::from))
             .collect();
-        assert_ne!(demos1, demos2, "Different predictors should get different demos");
+        assert_ne!(
+            demos1, demos2,
+            "Different predictors should get different demos"
+        );
     }
 }

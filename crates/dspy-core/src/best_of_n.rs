@@ -69,7 +69,8 @@ impl Module for BestOfN {
             }
         }
 
-        best_pred.ok_or_else(|| crate::error::DspyError::Other("BestOfN: All attempts failed".into()))
+        best_pred
+            .ok_or_else(|| crate::error::DspyError::Other("BestOfN: All attempts failed".into()))
     }
 
     fn deep_copy(&self) -> Box<dyn Module> {

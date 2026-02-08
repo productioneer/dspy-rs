@@ -205,8 +205,14 @@ mod tests {
 
     #[test]
     fn test_infer_data_format() {
-        assert_eq!(infer_data_format("ChatAdapter").unwrap(), TrainDataFormat::Chat);
-        assert_eq!(infer_data_format("XMLAdapter").unwrap(), TrainDataFormat::Chat);
+        assert_eq!(
+            infer_data_format("ChatAdapter").unwrap(),
+            TrainDataFormat::Chat
+        );
+        assert_eq!(
+            infer_data_format("XMLAdapter").unwrap(),
+            TrainDataFormat::Chat
+        );
         assert!(infer_data_format("Unknown").is_err());
     }
 

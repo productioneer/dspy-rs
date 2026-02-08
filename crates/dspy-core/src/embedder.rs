@@ -114,9 +114,7 @@ impl Embedder {
 
     /// Compute embedding for a single input (convenience method).
     pub async fn call_single(&self, input: &str) -> Result<Vec<f32>> {
-        let results = self
-            .call(&[input.to_string()], None, None, None)
-            .await?;
+        let results = self.call(&[input.to_string()], None, None, None).await?;
         results
             .into_iter()
             .next()

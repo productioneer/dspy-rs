@@ -50,13 +50,22 @@ pub struct Message {
 
 impl Message {
     pub fn system(content: &str) -> Self {
-        Self { role: "system".to_string(), content: content.to_string() }
+        Self {
+            role: "system".to_string(),
+            content: content.to_string(),
+        }
     }
     pub fn user(content: &str) -> Self {
-        Self { role: "user".to_string(), content: content.to_string() }
+        Self {
+            role: "user".to_string(),
+            content: content.to_string(),
+        }
     }
     pub fn assistant(content: &str) -> Self {
-        Self { role: "assistant".to_string(), content: content.to_string() }
+        Self {
+            role: "assistant".to_string(),
+            content: content.to_string(),
+        }
     }
 }
 
@@ -72,7 +81,11 @@ pub struct HistoryEntry {
 
 #[async_trait]
 pub trait LM: Send + Sync {
-    async fn call(&self, messages: &[Message], config: &LMConfig) -> crate::error::Result<Vec<LMResponse>>;
+    async fn call(
+        &self,
+        messages: &[Message],
+        config: &LMConfig,
+    ) -> crate::error::Result<Vec<LMResponse>>;
     fn model(&self) -> &str;
     fn config(&self) -> &LMConfig;
     fn dump_state(&self) -> serde_json::Value;
@@ -305,15 +318,27 @@ mod tests {
 
     #[async_trait]
     impl LM for MockLM {
-        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> crate::error::Result<Vec<LMResponse>> {
-            let idx = self.call_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) as usize;
+        async fn call(
+            &self,
+            _messages: &[Message],
+            _config: &LMConfig,
+        ) -> crate::error::Result<Vec<LMResponse>> {
+            let idx = self
+                .call_count
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst) as usize;
             let idx = idx.min(self.responses.len() - 1);
             Ok(vec![self.responses[idx].clone()])
         }
 
-        fn model(&self) -> &str { "test-model" }
-        fn config(&self) -> &LMConfig { &self.cfg }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "test-model"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.cfg
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     #[tokio::test]
@@ -322,17 +347,24 @@ mod tests {
         clear_history();
         reset_global_cache();
 
-        let lm = MockLM::new(vec![LMResponse { text: "hello".to_string(), usage: None }]);
+        let lm = MockLM::new(vec![LMResponse {
+            text: "hello".to_string(),
+            usage: None,
+        }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
 
         // First call — cache miss
-        let r1 = call_with_cache(&lm, &messages, &config, true).await.unwrap();
+        let r1 = call_with_cache(&lm, &messages, &config, true)
+            .await
+            .unwrap();
         assert_eq!(r1[0].text, "hello");
         assert_eq!(lm.calls(), 1);
 
         // Second call — cache hit
-        let r2 = call_with_cache(&lm, &messages, &config, true).await.unwrap();
+        let r2 = call_with_cache(&lm, &messages, &config, true)
+            .await
+            .unwrap();
         assert_eq!(r2[0].text, "hello");
         assert_eq!(lm.calls(), 1); // not called again
     }
@@ -344,15 +376,25 @@ mod tests {
         reset_global_cache();
 
         let lm = MockLM::new(vec![
-            LMResponse { text: "first".to_string(), usage: None },
-            LMResponse { text: "second".to_string(), usage: None },
+            LMResponse {
+                text: "first".to_string(),
+                usage: None,
+            },
+            LMResponse {
+                text: "second".to_string(),
+                usage: None,
+            },
         ]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
 
-        let r1 = call_with_cache(&lm, &messages, &config, false).await.unwrap();
+        let r1 = call_with_cache(&lm, &messages, &config, false)
+            .await
+            .unwrap();
         assert_eq!(r1[0].text, "first");
-        let r2 = call_with_cache(&lm, &messages, &config, false).await.unwrap();
+        let r2 = call_with_cache(&lm, &messages, &config, false)
+            .await
+            .unwrap();
         assert_eq!(r2[0].text, "second");
         assert_eq!(lm.calls(), 2);
     }
@@ -364,16 +406,26 @@ mod tests {
         reset_global_cache();
 
         let lm = MockLM::new(vec![
-            LMResponse { text: "a".to_string(), usage: None },
-            LMResponse { text: "b".to_string(), usage: None },
+            LMResponse {
+                text: "a".to_string(),
+                usage: None,
+            },
+            LMResponse {
+                text: "b".to_string(),
+                usage: None,
+            },
         ]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
 
         configure(Settings::new().with_cache_disabled());
-        let r1 = call_with_cache(&lm, &messages, &config, true).await.unwrap();
+        let r1 = call_with_cache(&lm, &messages, &config, true)
+            .await
+            .unwrap();
         assert_eq!(r1[0].text, "a");
-        let r2 = call_with_cache(&lm, &messages, &config, true).await.unwrap();
+        let r2 = call_with_cache(&lm, &messages, &config, true)
+            .await
+            .unwrap();
         assert_eq!(r2[0].text, "b");
         assert_eq!(lm.calls(), 2);
         reset_settings();
@@ -385,11 +437,16 @@ mod tests {
         clear_history();
         reset_global_cache();
 
-        let lm = MockLM::new(vec![LMResponse { text: "hello".to_string(), usage: None }]);
+        let lm = MockLM::new(vec![LMResponse {
+            text: "hello".to_string(),
+            usage: None,
+        }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
 
-        call_with_cache(&lm, &messages, &config, false).await.unwrap();
+        call_with_cache(&lm, &messages, &config, false)
+            .await
+            .unwrap();
 
         let history = inspect_history(1);
         assert_eq!(history.len(), 1);
@@ -403,12 +460,19 @@ mod tests {
         clear_history();
         reset_global_cache();
 
-        let lm = MockLM::new(vec![LMResponse { text: "hello".to_string(), usage: None }]);
+        let lm = MockLM::new(vec![LMResponse {
+            text: "hello".to_string(),
+            usage: None,
+        }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
 
-        call_with_cache(&lm, &messages, &config, true).await.unwrap(); // miss
-        call_with_cache(&lm, &messages, &config, true).await.unwrap(); // hit
+        call_with_cache(&lm, &messages, &config, true)
+            .await
+            .unwrap(); // miss
+        call_with_cache(&lm, &messages, &config, true)
+            .await
+            .unwrap(); // hit
 
         let history = inspect_history(2);
         assert_eq!(history.len(), 2);
@@ -422,12 +486,17 @@ mod tests {
         clear_history();
         reset_global_cache();
 
-        let lm = MockLM::new(vec![LMResponse { text: "hello".to_string(), usage: None }]);
+        let lm = MockLM::new(vec![LMResponse {
+            text: "hello".to_string(),
+            usage: None,
+        }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
 
         configure(Settings::new().with_disable_history(true));
-        call_with_cache(&lm, &messages, &config, false).await.unwrap();
+        call_with_cache(&lm, &messages, &config, false)
+            .await
+            .unwrap();
         assert_eq!(inspect_history(10).len(), 0);
         reset_settings();
     }
@@ -440,14 +509,19 @@ mod tests {
 
         let lm = MockLM::new(vec![LMResponse {
             text: "hello".to_string(),
-            usage: Some(Usage { prompt_tokens: 100, completion_tokens: 50 }),
+            usage: Some(Usage {
+                prompt_tokens: 100,
+                completion_tokens: 50,
+            }),
         }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
 
         let tracker = Arc::new(Mutex::new(UsageTracker::new()));
         configure(Settings::new().with_usage_tracker(tracker.clone()));
-        call_with_cache(&lm, &messages, &config, false).await.unwrap();
+        call_with_cache(&lm, &messages, &config, false)
+            .await
+            .unwrap();
         reset_settings();
 
         let t = tracker.lock().unwrap();
@@ -464,15 +538,22 @@ mod tests {
 
         let lm = MockLM::new(vec![LMResponse {
             text: "hello".to_string(),
-            usage: Some(Usage { prompt_tokens: 100, completion_tokens: 50 }),
+            usage: Some(Usage {
+                prompt_tokens: 100,
+                completion_tokens: 50,
+            }),
         }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
 
         let tracker = Arc::new(Mutex::new(UsageTracker::new()));
         configure(Settings::new().with_usage_tracker(tracker.clone()));
-        call_with_cache(&lm, &messages, &config, true).await.unwrap(); // miss
-        call_with_cache(&lm, &messages, &config, true).await.unwrap(); // hit
+        call_with_cache(&lm, &messages, &config, true)
+            .await
+            .unwrap(); // miss
+        call_with_cache(&lm, &messages, &config, true)
+            .await
+            .unwrap(); // hit
         reset_settings();
 
         let t = tracker.lock().unwrap();
@@ -488,7 +569,10 @@ mod tests {
         for i in 0..5 {
             record_global_history(HistoryEntry {
                 messages: vec![Message::user(&format!("msg{}", i))],
-                response: vec![LMResponse { text: format!("resp{}", i), usage: None }],
+                response: vec![LMResponse {
+                    text: format!("resp{}", i),
+                    usage: None,
+                }],
                 model: "m".to_string(),
                 cache_hit: false,
                 timestamp: "0".to_string(),

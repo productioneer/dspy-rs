@@ -9,8 +9,8 @@
 //! 3. Suggest parameters that maximize l(x)/g(x) ratio (Expected Improvement)
 
 use rand::rngs::StdRng;
-use rand::SeedableRng;
 use rand::Rng;
+use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -128,9 +128,7 @@ impl TPESampler {
         let completed: Vec<(usize, f64)> = trials
             .iter()
             .filter(|t| t.state == TrialState::Complete && t.value.is_some())
-            .filter_map(|t| {
-                t.params.get(name).map(|&v| (v, t.value.unwrap()))
-            })
+            .filter_map(|t| t.params.get(name).map(|&v| (v, t.value.unwrap())))
             .collect();
 
         // During startup phase, sample uniformly
@@ -294,7 +292,8 @@ impl Study {
     /// Suggest a categorical parameter value for a pending trial.
     /// This exposes the sampler for manual ask/tell workflows.
     pub fn suggest_categorical(&mut self, name: &str, n_choices: usize) -> usize {
-        self.sampler.sample_categorical(name, n_choices, &self.trials, self.direction)
+        self.sampler
+            .sample_categorical(name, n_choices, &self.trials, self.direction)
     }
 
     /// Record a completed trial with known params and score.
@@ -513,7 +512,10 @@ mod tests {
         assert_eq!(run1, run2, "Same seed must produce identical results");
 
         let run3 = run(99);
-        assert_ne!(run1, run3, "Different seeds should produce different results");
+        assert_ne!(
+            run1, run3,
+            "Different seeds should produce different results"
+        );
     }
 
     #[test]

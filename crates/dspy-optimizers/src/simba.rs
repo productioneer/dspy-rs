@@ -6,7 +6,7 @@
 //!
 //! Python equivalent: dspy/teleprompt/simba.py
 
-use dspy_core::{Example, LM, Metric, Module, Predict, Prediction, SignatureBuilder};
+use dspy_core::{Example, Metric, Module, Predict, Prediction, SignatureBuilder, LM};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
@@ -330,15 +330,18 @@ impl SIMBA {
                 });
             }
 
-            trial_logs.insert(batch_idx, SIMBATrialLog {
-                batch_baseline: batch_baseline_score,
-                candidate_scores: candidate_scores.clone(),
-                best_score: candidate_scores
-                    .iter()
-                    .cloned()
-                    .fold(f64::NEG_INFINITY, f64::max),
-                strategy_used: None,
-            });
+            trial_logs.insert(
+                batch_idx,
+                SIMBATrialLog {
+                    batch_baseline: batch_baseline_score,
+                    candidate_scores: candidate_scores.clone(),
+                    best_score: candidate_scores
+                        .iter()
+                        .cloned()
+                        .fold(f64::NEG_INFINITY, f64::max),
+                    strategy_used: None,
+                },
+            );
         }
 
         // Final validation on full trainset
@@ -353,8 +356,10 @@ impl SIMBA {
         };
         eval_indices.dedup();
 
-        let eval_programs: Vec<Box<dyn Module>> =
-            eval_indices.iter().map(|&i| winning_programs[i].deep_copy()).collect();
+        let eval_programs: Vec<Box<dyn Module>> = eval_indices
+            .iter()
+            .map(|&i| winning_programs[i].deep_copy())
+            .collect();
 
         let mut final_scores = Vec::new();
         for prog in &eval_programs {
@@ -385,7 +390,10 @@ impl SIMBA {
         let candidate_programs: Vec<ScoredProgram> = final_scores
             .into_iter()
             .zip(winning_programs.into_iter())
-            .map(|(s, p)| ScoredProgram { score: s, program: p })
+            .map(|(s, p)| ScoredProgram {
+                score: s,
+                program: p,
+            })
             .collect();
 
         Ok(SIMBAResult {
@@ -550,7 +558,7 @@ impl SIMBA {
         let sig = SignatureBuilder::new()
             .instructions(
                 "Given a better and worse execution of a program, generate a concise rule \
-                 that would help the program produce better outputs in similar situations."
+                 that would help the program produce better outputs in similar situations.",
             )
             .input_with_desc("good_score", "Score of the better execution")
             .input_with_desc("bad_score", "Score of the worse execution")
@@ -653,9 +661,15 @@ mod tests {
             };
             Ok(vec![LMResponse { text, usage: None }])
         }
-        fn model(&self) -> &str { "mock" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     struct SimpleModule {
@@ -664,7 +678,9 @@ mod tests {
 
     impl SimpleModule {
         fn new(sig: Signature) -> Self {
-            Self { predict: Predict::new(sig) }
+            Self {
+                predict: Predict::new(sig),
+            }
         }
         fn with_lm(mut self, lm: Arc<dyn LM>) -> Self {
             self.predict.set_lm(lm);
@@ -707,7 +723,11 @@ mod tests {
         let metric: Metric = Arc::new(|example, prediction| {
             let expected = example.get_str("answer").unwrap_or("");
             let got = prediction.get_str("answer").unwrap_or("");
-            if expected == got { 1.0 } else { 0.0 }
+            if expected == got {
+                1.0
+            } else {
+                0.0
+            }
         });
 
         let sig = Signature::from_string("question -> answer").unwrap();

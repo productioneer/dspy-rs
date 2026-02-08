@@ -108,12 +108,12 @@ impl ProgramOfThought {
     }
 
     /// Execute code in the interpreter and handle errors.
-    async fn execute_code(
-        &self,
-        code: &str,
-    ) -> (Option<String>, Option<String>) {
+    async fn execute_code(&self, code: &str) -> (Option<String>, Option<String>) {
         if code.trim().is_empty() {
-            return (None, Some("Error: Empty code before execution.".to_string()));
+            return (
+                None,
+                Some("Error: Empty code before execution.".to_string()),
+            );
         }
 
         let mut interp = self.interpreter.lock().await;
@@ -272,12 +272,8 @@ impl Module for ProgramOfThought {
             input_field_names: self.input_field_names.clone(),
             output_field_names: self.output_field_names.clone(),
             code_generate: ChainOfThought::new(self.code_generate.predict().signature.clone()),
-            code_regenerate: ChainOfThought::new(
-                self.code_regenerate.predict().signature.clone(),
-            ),
-            generate_output: ChainOfThought::new(
-                self.generate_output.predict().signature.clone(),
-            ),
+            code_regenerate: ChainOfThought::new(self.code_regenerate.predict().signature.clone()),
+            generate_output: ChainOfThought::new(self.generate_output.predict().signature.clone()),
         })
     }
 }
@@ -395,10 +391,7 @@ fn build_instruction(original: &Signature, mode: &str) -> String {
 }
 
 fn build_signature_field_names(original: &Signature, mode: &str) -> (Vec<String>, Vec<String>) {
-    let mut inputs: Vec<String> = original
-        .input_fields()
-        .map(|(n, _)| n.clone())
-        .collect();
+    let mut inputs: Vec<String> = original.input_fields().map(|(n, _)| n.clone()).collect();
 
     match mode {
         "regenerate" => {
@@ -413,10 +406,7 @@ fn build_signature_field_names(original: &Signature, mode: &str) -> (Vec<String>
     }
 
     let outputs = if mode == "answer" {
-        original
-            .output_fields()
-            .map(|(n, _)| n.clone())
-            .collect()
+        original.output_fields().map(|(n, _)| n.clone()).collect()
     } else {
         vec!["generated_code".to_string()]
     };
@@ -450,11 +440,7 @@ mod tests {
 
     #[async_trait]
     impl LM for MockLM {
-        async fn call(
-            &self,
-            _messages: &[Message],
-            _config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
+        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
             let mut idx = self.call_index.lock().unwrap();
             let response = self.responses[*idx % self.responses.len()].clone();
             *idx += 1;
@@ -463,9 +449,15 @@ mod tests {
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "mock" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     #[test]
@@ -502,9 +494,7 @@ mod tests {
 
     #[test]
     fn test_parse_code_empty() {
-        let pred = Prediction::from_example(
-            Example::new().field("generated_code", ""),
-        );
+        let pred = Prediction::from_example(Example::new().field("generated_code", ""));
         let (_, error) = ProgramOfThought::parse_code(&pred);
         assert!(error.is_some());
     }
@@ -512,9 +502,7 @@ mod tests {
     #[tokio::test]
     async fn test_forward_executes_and_extracts() {
         settings::reset_settings();
-        let mock_interp = MockInterpreter::new(vec![
-            MockResponse::output("{\"answer\": \"42\"}"),
-        ]);
+        let mock_interp = MockInterpreter::new(vec![MockResponse::output("{\"answer\": \"42\"}")]);
 
         let mock_lm = Arc::new(MockLM::new(vec![
             // code_generate (CoT: reasoning + generated_code)
@@ -530,7 +518,10 @@ mod tests {
             Box::new(mock_interp),
         );
 
-        let result = pot.forward(&Example::new().field("question", "What is 6*7?")).await.unwrap();
+        let result = pot
+            .forward(&Example::new().field("question", "What is 6*7?"))
+            .await
+            .unwrap();
         // Should get an answer field
         assert!(result.get_str("answer").is_some());
         settings::reset_settings();
@@ -560,7 +551,10 @@ mod tests {
             Box::new(mock_interp),
         );
 
-        let result = pot.forward(&Example::new().field("question", "test")).await.unwrap();
+        let result = pot
+            .forward(&Example::new().field("question", "test"))
+            .await
+            .unwrap();
         assert!(result.get_str("answer").is_some());
         settings::reset_settings();
     }

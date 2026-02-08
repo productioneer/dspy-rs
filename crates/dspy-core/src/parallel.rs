@@ -38,8 +38,8 @@ pub async fn parallel_execute(
     exec_pairs: Vec<(&dyn Module, Example)>,
     config: &ParallelConfig,
 ) -> Result<ParallelResult> {
-    use tokio::sync::Semaphore;
     use std::sync::Arc;
+    use tokio::sync::Semaphore;
 
     let n = exec_pairs.len();
     let semaphore = Arc::new(Semaphore::new(config.num_threads));
@@ -58,9 +58,10 @@ pub async fn parallel_execute(
             continue;
         }
 
-        let _permit = semaphore.acquire().await.map_err(|e| {
-            DspyError::Other(format!("Semaphore error: {}", e))
-        })?;
+        let _permit = semaphore
+            .acquire()
+            .await
+            .map_err(|e| DspyError::Other(format!("Semaphore error: {}", e)))?;
 
         match module.call(&inputs).await {
             Ok(pred) => results.push(Some(pred)),
@@ -123,23 +124,32 @@ mod tests {
         let m1 = ConstModule { answer: "A".into() };
         let m2 = ConstModule { answer: "B".into() };
 
-        let pairs: Vec<(&dyn Module, Example)> = vec![
-            (&m1, Example::new()),
-            (&m2, Example::new()),
-        ];
+        let pairs: Vec<(&dyn Module, Example)> = vec![(&m1, Example::new()), (&m2, Example::new())];
 
-        let result = parallel_execute(pairs, &ParallelConfig::default()).await.unwrap();
+        let result = parallel_execute(pairs, &ParallelConfig::default())
+            .await
+            .unwrap();
         assert_eq!(result.results.len(), 2);
-        assert_eq!(result.results[0].as_ref().unwrap().get_str("answer"), Some("A"));
-        assert_eq!(result.results[1].as_ref().unwrap().get_str("answer"), Some("B"));
+        assert_eq!(
+            result.results[0].as_ref().unwrap().get_str("answer"),
+            Some("A")
+        );
+        assert_eq!(
+            result.results[1].as_ref().unwrap().get_str("answer"),
+            Some("B")
+        );
         assert!(result.failed_indices.is_empty());
     }
 
     #[tokio::test]
     async fn test_parallel_with_failures() {
-        let m1 = ConstModule { answer: "ok".into() };
+        let m1 = ConstModule {
+            answer: "ok".into(),
+        };
         let m2 = FailModule;
-        let m3 = ConstModule { answer: "also ok".into() };
+        let m3 = ConstModule {
+            answer: "also ok".into(),
+        };
 
         let pairs: Vec<(&dyn Module, Example)> = vec![
             (&m1, Example::new()),
@@ -147,7 +157,9 @@ mod tests {
             (&m3, Example::new()),
         ];
 
-        let result = parallel_execute(pairs, &ParallelConfig::default()).await.unwrap();
+        let result = parallel_execute(pairs, &ParallelConfig::default())
+            .await
+            .unwrap();
         assert_eq!(result.results.len(), 3);
         assert!(result.results[0].is_some());
         assert!(result.results[1].is_none());
@@ -159,7 +171,9 @@ mod tests {
     async fn test_parallel_max_errors() {
         let m1 = FailModule;
         let m2 = FailModule;
-        let m3 = ConstModule { answer: "ok".into() };
+        let m3 = ConstModule {
+            answer: "ok".into(),
+        };
 
         let config = ParallelConfig {
             max_errors: 1,

@@ -60,17 +60,32 @@ impl Dataset {
 
     /// Get the training split.
     pub fn train(&self) -> Vec<Example> {
-        self.shuffle_and_sample("train", &self.train_data, self.config.train_size, self.config.train_seed)
+        self.shuffle_and_sample(
+            "train",
+            &self.train_data,
+            self.config.train_size,
+            self.config.train_seed,
+        )
     }
 
     /// Get the dev/validation split.
     pub fn dev(&self) -> Vec<Example> {
-        self.shuffle_and_sample("dev", &self.dev_data, self.config.dev_size, self.config.eval_seed)
+        self.shuffle_and_sample(
+            "dev",
+            &self.dev_data,
+            self.config.dev_size,
+            self.config.eval_seed,
+        )
     }
 
     /// Get the test split.
     pub fn test(&self) -> Vec<Example> {
-        self.shuffle_and_sample("test", &self.test_data, self.config.test_size, self.config.eval_seed)
+        self.shuffle_and_sample(
+            "test",
+            &self.test_data,
+            self.config.test_size,
+            self.config.eval_seed,
+        )
     }
 
     /// Prepare multiple train/eval sets indexed by seed for reproducible cross-validation.
@@ -143,13 +158,12 @@ impl Dataset {
             .map(|mut item| {
                 item.insert("dspy_split".to_string(), split.to_string());
                 // Convert HashMap<String, String> to HashMap<String, Value>
-                let value_map: std::collections::HashMap<String, Value> = item
-                    .into_iter()
-                    .map(|(k, v)| (k, Value::from(v)))
-                    .collect();
+                let value_map: std::collections::HashMap<String, Value> =
+                    item.into_iter().map(|(k, v)| (k, Value::from(v))).collect();
                 let example = Example::from_map(value_map);
                 if !self.config.input_keys.is_empty() {
-                    let refs: Vec<&str> = self.config.input_keys.iter().map(|s| s.as_str()).collect();
+                    let refs: Vec<&str> =
+                        self.config.input_keys.iter().map(|s| s.as_str()).collect();
                     example.with_inputs(&refs)
                 } else {
                     example
@@ -211,13 +225,7 @@ mod tests {
             train_size: Some(3),
             ..Default::default()
         };
-        let ds = Dataset::new(
-            "test",
-            config,
-            make_data(10),
-            Vec::new(),
-            Vec::new(),
-        );
+        let ds = Dataset::new("test", config, make_data(10), Vec::new(), Vec::new());
 
         assert_eq!(ds.train().len(), 3);
     }
@@ -228,25 +236,13 @@ mod tests {
             train_seed: 42,
             ..Default::default()
         };
-        let ds1 = Dataset::new(
-            "test",
-            config,
-            make_data(10),
-            Vec::new(),
-            Vec::new(),
-        );
+        let ds1 = Dataset::new("test", config, make_data(10), Vec::new(), Vec::new());
 
         let config2 = DatasetConfig {
             train_seed: 42,
             ..Default::default()
         };
-        let ds2 = Dataset::new(
-            "test",
-            config2,
-            make_data(10),
-            Vec::new(),
-            Vec::new(),
-        );
+        let ds2 = Dataset::new("test", config2, make_data(10), Vec::new(), Vec::new());
 
         let t1 = ds1.train();
         let t2 = ds2.train();
@@ -274,13 +270,7 @@ mod tests {
             Vec::new(),
         );
 
-        let (train_sets, eval_sets) = ds.prepare_by_seed(
-            Some(&[1, 2, 3]),
-            5,
-            90,
-            true,
-            42,
-        );
+        let (train_sets, eval_sets) = ds.prepare_by_seed(Some(&[1, 2, 3]), 5, 90, true, 42);
 
         assert_eq!(train_sets.len(), 3);
         assert_eq!(eval_sets.len(), 3);
@@ -296,9 +286,18 @@ mod tests {
         }
 
         // Different seeds produce different train orders
-        let t1: Vec<_> = train_sets[0].iter().map(|e| e.get_str("question").unwrap_or("").to_string()).collect();
-        let t2: Vec<_> = train_sets[1].iter().map(|e| e.get_str("question").unwrap_or("").to_string()).collect();
-        assert_ne!(t1, t2, "Different seeds should produce different train sets");
+        let t1: Vec<_> = train_sets[0]
+            .iter()
+            .map(|e| e.get_str("question").unwrap_or("").to_string())
+            .collect();
+        let t2: Vec<_> = train_sets[1]
+            .iter()
+            .map(|e| e.get_str("question").unwrap_or("").to_string())
+            .collect();
+        assert_ne!(
+            t1, t2,
+            "Different seeds should produce different train sets"
+        );
     }
 
     #[test]
@@ -311,13 +310,7 @@ mod tests {
             Vec::new(),
         );
 
-        let (_, eval_sets) = ds.prepare_by_seed(
-            Some(&[1, 2]),
-            5,
-            50,
-            false,
-            42,
-        );
+        let (_, eval_sets) = ds.prepare_by_seed(Some(&[1, 2]), 5, 50, false, 42);
 
         // Each eval set gets the full devSize
         for es in &eval_sets {
@@ -331,13 +324,7 @@ mod tests {
             input_keys: vec!["question".to_string()],
             ..Default::default()
         };
-        let ds = Dataset::new(
-            "test",
-            config,
-            make_data(3),
-            Vec::new(),
-            Vec::new(),
-        );
+        let ds = Dataset::new("test", config, make_data(3), Vec::new(), Vec::new());
 
         let examples = ds.train();
         // Each example should have input_keys set

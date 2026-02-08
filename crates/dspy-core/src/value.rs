@@ -148,13 +148,11 @@ impl From<Value> for serde_json::Value {
             Value::List(arr) => {
                 serde_json::Value::Array(arr.into_iter().map(serde_json::Value::from).collect())
             }
-            Value::Object(map) => {
-                serde_json::Value::Object(
-                    map.into_iter()
-                        .map(|(k, v)| (k, serde_json::Value::from(v)))
-                        .collect(),
-                )
-            }
+            Value::Object(map) => serde_json::Value::Object(
+                map.into_iter()
+                    .map(|(k, v)| (k, serde_json::Value::from(v)))
+                    .collect(),
+            ),
         }
     }
 }

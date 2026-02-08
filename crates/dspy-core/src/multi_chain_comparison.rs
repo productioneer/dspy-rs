@@ -81,10 +81,7 @@ impl MultiChainComparison {
                 .unwrap_or("");
             let rationale_first_line = rationale.trim().lines().next().unwrap_or("").trim();
 
-            let answer = c
-                .get(&self.last_key)
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let answer = c.get(&self.last_key).and_then(|v| v.as_str()).unwrap_or("");
             let answer_first_line = answer.trim().lines().next().unwrap_or("").trim();
 
             inputs.set(

@@ -157,12 +157,10 @@ mod tests {
             call_count: call_count.clone(),
         });
 
-        let reward_fn: RewardFn = Box::new(|_, pred| {
-            match pred.get_str("answer") {
-                Some("good") => 1.0,
-                Some("ok") => 0.5,
-                _ => 0.0,
-            }
+        let reward_fn: RewardFn = Box::new(|_, pred| match pred.get_str("answer") {
+            Some("good") => 1.0,
+            Some("ok") => 0.5,
+            _ => 0.0,
         });
 
         let refine = Refine::new(module, 3, reward_fn, 2.0, None); // unreachable threshold
@@ -179,7 +177,11 @@ mod tests {
         });
 
         let reward_fn: RewardFn = Box::new(|_, pred| {
-            if pred.get_str("answer") == Some("great") { 1.0 } else { 0.3 }
+            if pred.get_str("answer") == Some("great") {
+                1.0
+            } else {
+                0.3
+            }
         });
 
         let refine = Refine::new(module, 10, reward_fn, 0.9, None);

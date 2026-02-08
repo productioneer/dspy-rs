@@ -64,11 +64,17 @@ impl XMLAdapter {
 
         // Input fields section
         parts.push("Your input fields are:".to_string());
-        parts.push(self.chat_adapter.format_field_description_string(signature.input_fields()));
+        parts.push(
+            self.chat_adapter
+                .format_field_description_string(signature.input_fields()),
+        );
 
         // Output fields section
         parts.push("Your output fields are:".to_string());
-        parts.push(self.chat_adapter.format_field_description_string(signature.output_fields()));
+        parts.push(
+            self.chat_adapter
+                .format_field_description_string(signature.output_fields()),
+        );
 
         // Interaction structure
         parts.push(
@@ -188,10 +194,8 @@ impl XMLAdapter {
         signature: &Signature,
     ) -> Result<HashMap<String, Value>> {
         let mut result = HashMap::new();
-        let output_field_names: Vec<String> = signature
-            .output_fields()
-            .map(|(k, _)| k.clone())
-            .collect();
+        let output_field_names: Vec<String> =
+            signature.output_fields().map(|(k, _)| k.clone()).collect();
         let output_set: std::collections::HashSet<&str> =
             output_field_names.iter().map(|s| s.as_str()).collect();
 
@@ -245,12 +249,9 @@ impl Adapter for XMLAdapter {
             "messages": messages.len(),
             "model": lm.model(),
         });
-        let responses = with_callbacks_async(
-            ComponentType::Lm,
-            lm.model(),
-            &lm_inputs,
-            || lm.call(&messages, config),
-        )
+        let responses = with_callbacks_async(ComponentType::Lm, lm.model(), &lm_inputs, || {
+            lm.call(&messages, config)
+        })
         .await?;
 
         let mut results = Vec::new();
@@ -375,10 +376,7 @@ mod tests {
         let result = adapter
             .parse_output("<answer>Line 1\nLine 2\nLine 3</answer>", &sig)
             .unwrap();
-        assert_eq!(
-            result["answer"].as_str(),
-            Some("Line 1\nLine 2\nLine 3")
-        );
+        assert_eq!(result["answer"].as_str(), Some("Line 1\nLine 2\nLine 3"));
     }
 
     #[test]
@@ -386,10 +384,7 @@ mod tests {
         let adapter = XMLAdapter::new();
         let sig = Signature::from_string("question -> answer").unwrap();
         let result = adapter
-            .parse_output(
-                "<question>ignored</question>\n<answer>42</answer>",
-                &sig,
-            )
+            .parse_output("<question>ignored</question>\n<answer>42</answer>", &sig)
             .unwrap();
         assert_eq!(result["answer"].as_str(), Some("42"));
         assert!(!result.contains_key("question"));
@@ -409,9 +404,7 @@ mod tests {
     fn test_parse_fallback_to_raw_text() {
         let adapter = XMLAdapter::new();
         let sig = Signature::from_string("question -> answer").unwrap();
-        let result = adapter
-            .parse_output("The answer is 42", &sig)
-            .unwrap();
+        let result = adapter.parse_output("The answer is 42", &sig).unwrap();
         assert_eq!(result["answer"].as_str(), Some("The answer is 42"));
     }
 

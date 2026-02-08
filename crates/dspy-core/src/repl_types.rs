@@ -249,13 +249,7 @@ mod tests {
 
     #[test]
     fn test_create_repl_variable_string() {
-        let v = create_repl_variable(
-            "msg",
-            &serde_json::json!("hello world"),
-            None,
-            None,
-            None,
-        );
+        let v = create_repl_variable("msg", &serde_json::json!("hello world"), None, None, None);
         assert_eq!(v.name, "msg");
         assert_eq!(v.type_name, "string");
         assert_eq!(v.total_length, 11);

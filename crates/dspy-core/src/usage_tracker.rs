@@ -60,9 +60,7 @@ fn merge_usage_entries(a: &serde_json::Value, b: &serde_json::Value) -> serde_js
             for (k, v) in ma {
                 let current = result.get(k);
                 match (current, v) {
-                    (Some(cv), _)
-                        if cv.is_object() || v.is_object() =>
-                    {
+                    (Some(cv), _) if cv.is_object() || v.is_object() => {
                         result.insert(k.clone(), merge_usage_entries(cv, v));
                     }
                     (Some(cv), _) => {
@@ -101,8 +99,14 @@ mod tests {
     #[test]
     fn test_add_usage() {
         let mut tracker = UsageTracker::new();
-        tracker.add_usage("gpt-4", json!({"prompt_tokens": 100, "completion_tokens": 200}));
-        tracker.add_usage("gpt-4", json!({"prompt_tokens": 50, "completion_tokens": 100}));
+        tracker.add_usage(
+            "gpt-4",
+            json!({"prompt_tokens": 100, "completion_tokens": 200}),
+        );
+        tracker.add_usage(
+            "gpt-4",
+            json!({"prompt_tokens": 50, "completion_tokens": 100}),
+        );
         assert_eq!(tracker.usage_data["gpt-4"].len(), 2);
     }
 
@@ -116,8 +120,14 @@ mod tests {
     #[test]
     fn test_get_total_tokens() {
         let mut tracker = UsageTracker::new();
-        tracker.add_usage("gpt-4", json!({"prompt_tokens": 100, "completion_tokens": 200}));
-        tracker.add_usage("gpt-4", json!({"prompt_tokens": 50, "completion_tokens": 100}));
+        tracker.add_usage(
+            "gpt-4",
+            json!({"prompt_tokens": 100, "completion_tokens": 200}),
+        );
+        tracker.add_usage(
+            "gpt-4",
+            json!({"prompt_tokens": 50, "completion_tokens": 100}),
+        );
         tracker.add_usage("gpt-3.5", json!({"prompt_tokens": 10}));
 
         let totals = tracker.get_total_tokens();

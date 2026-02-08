@@ -279,10 +279,7 @@ impl Module for ReAct {
                 }
             };
 
-            let thought = pred
-                .get_str("next_thought")
-                .unwrap_or("")
-                .to_string();
+            let thought = pred.get_str("next_thought").unwrap_or("").to_string();
             let tool_name = pred
                 .get_str("next_tool_name")
                 .unwrap_or("finish")
@@ -304,10 +301,7 @@ impl Module for ReAct {
             if let Some(tool) = self.tools.get(&tool_name) {
                 match tool.call(tool_args).await {
                     Ok(result) => {
-                        trajectory.insert(
-                            format!("observation_{}", idx),
-                            result.to_string(),
-                        );
+                        trajectory.insert(format!("observation_{}", idx), result.to_string());
                     }
                     Err(e) => {
                         trajectory.insert(
@@ -332,10 +326,7 @@ impl Module for ReAct {
         let mut extract_args = input_args.clone();
         extract_args.set("trajectory", Self::format_trajectory(&trajectory));
 
-        let extract: Prediction = self
-            .extract_predict
-            .call(&extract_args)
-            .await?;
+        let extract: Prediction = self.extract_predict.call(&extract_args).await?;
 
         // Build result with trajectory included
         let mut result_data: HashMap<String, Value> = HashMap::new();
@@ -346,8 +337,8 @@ impl Module for ReAct {
         }
 
         // Add trajectory as a serialized JSON string
-        let trajectory_json = serde_json::to_string(&trajectory)
-            .unwrap_or_else(|_| "{}".to_string());
+        let trajectory_json =
+            serde_json::to_string(&trajectory).unwrap_or_else(|_| "{}".to_string());
         result_data.insert("trajectory".to_string(), Value::String(trajectory_json));
 
         // Include reasoning if present
@@ -381,9 +372,7 @@ impl Module for ReAct {
             tools: HashMap::new(), // Tools contain closures, can't clone
             max_iters: self.max_iters,
             react_predict: self.react_predict.clone(),
-            extract_predict: ChainOfThought::new(
-                self.extract_predict.predict().signature.clone(),
-            ),
+            extract_predict: ChainOfThought::new(self.extract_predict.predict().signature.clone()),
             original_signature: self.original_signature.clone(),
         })
     }
@@ -415,11 +404,7 @@ mod tests {
 
     #[async_trait]
     impl LM for MockReActLM {
-        async fn call(
-            &self,
-            _messages: &[Message],
-            _config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
+        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
             let idx = self.call_idx.fetch_add(1, Ordering::SeqCst);
             let response = &self.responses[idx % self.responses.len()];
             Ok(vec![LMResponse {

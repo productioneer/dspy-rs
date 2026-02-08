@@ -68,7 +68,10 @@ impl TwoStepAdapter {
 
         // Input field descriptions
         let input_desc = self.format_field_list(signature.input_fields());
-        parts.push(format!("As input, you will be provided with:\n{}", input_desc));
+        parts.push(format!(
+            "As input, you will be provided with:\n{}",
+            input_desc
+        ));
 
         // Output field descriptions
         let output_desc = self.format_field_list(signature.output_fields());
@@ -141,8 +144,7 @@ impl TwoStepAdapter {
         );
 
         let sig_spec = format!("text -> {}", output_field_names.join(", "));
-        Signature::from_string(&sig_spec)
-            .map(|s| s.with_instructions(&instructions))
+        Signature::from_string(&sig_spec).map(|s| s.with_instructions(&instructions))
     }
 }
 
@@ -171,12 +173,10 @@ impl Adapter for TwoStepAdapter {
             "messages": messages.len(),
             "model": lm.model(),
         });
-        let responses = with_callbacks_async(
-            ComponentType::Lm,
-            lm.model(),
-            &lm_inputs,
-            || lm.call(&messages, config),
-        ).await?;
+        let responses = with_callbacks_async(ComponentType::Lm, lm.model(), &lm_inputs, || {
+            lm.call(&messages, config)
+        })
+        .await?;
 
         if responses.is_empty() {
             return Err(DspyError::LMError("No responses from LM".into()));
@@ -189,20 +189,25 @@ impl Adapter for TwoStepAdapter {
         let mut results = Vec::new();
         for resp in &responses {
             let extract_inputs = Example::new().field("text", resp.text.as_str());
-            let extracted = self.chat_adapter.call(
-                self.extraction_lm.as_ref(),
-                &extractor_sig,
-                &[],
-                &extract_inputs,
-                &extraction_config,
-            ).await?;
+            let extracted = self
+                .chat_adapter
+                .call(
+                    self.extraction_lm.as_ref(),
+                    &extractor_sig,
+                    &[],
+                    &extract_inputs,
+                    &extraction_config,
+                )
+                .await?;
             if let Some(first) = extracted.into_iter().next() {
                 results.push(first);
             }
         }
 
         if results.is_empty() {
-            return Err(DspyError::LMError("Extraction failed for all responses".into()));
+            return Err(DspyError::LMError(
+                "Extraction failed for all responses".into(),
+            ));
         }
 
         Ok(results)
@@ -239,15 +244,24 @@ mod tests {
     #[async_trait]
     impl LM for MockLM {
         async fn call(&self, messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
-            self.captured_messages.lock().unwrap().push(messages.to_vec());
+            self.captured_messages
+                .lock()
+                .unwrap()
+                .push(messages.to_vec());
             Ok(vec![LMResponse {
                 text: self.response.clone(),
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "mock" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     #[tokio::test]
@@ -260,7 +274,10 @@ mod tests {
         let sig = Signature::from_string("question -> answer").unwrap();
         let inputs = Example::new().field("question", "What is 2+2?");
 
-        adapter.call(main_lm.as_ref(), &sig, &[], &inputs, &LMConfig::new("mock")).await.unwrap();
+        adapter
+            .call(main_lm.as_ref(), &sig, &[], &inputs, &LMConfig::new("mock"))
+            .await
+            .unwrap();
 
         // Main LM should receive natural-language messages
         let msgs = main_lm.last_messages();
@@ -309,7 +326,10 @@ mod tests {
         let sig = Signature::from_string("question -> answer").unwrap();
         let inputs = Example::new().field("question", "test");
 
-        adapter.call(main_lm.as_ref(), &sig, &[], &inputs, &LMConfig::new("mock")).await.unwrap();
+        adapter
+            .call(main_lm.as_ref(), &sig, &[], &inputs, &LMConfig::new("mock"))
+            .await
+            .unwrap();
 
         let msgs = main_lm.last_messages();
         let system = &msgs[0];
@@ -330,7 +350,10 @@ mod tests {
             .with_instructions("Answer in one word.");
         let inputs = Example::new().field("question", "What is 2+2?");
 
-        adapter.call(main_lm.as_ref(), &sig, &[], &inputs, &LMConfig::new("mock")).await.unwrap();
+        adapter
+            .call(main_lm.as_ref(), &sig, &[], &inputs, &LMConfig::new("mock"))
+            .await
+            .unwrap();
 
         let msgs = main_lm.last_messages();
         let system = &msgs[0];
@@ -350,7 +373,16 @@ mod tests {
             .field("question", "What is 1+1?")
             .field("answer", "2");
 
-        adapter.call(main_lm.as_ref(), &sig, &[demo], &inputs, &LMConfig::new("mock")).await.unwrap();
+        adapter
+            .call(
+                main_lm.as_ref(),
+                &sig,
+                &[demo],
+                &inputs,
+                &LMConfig::new("mock"),
+            )
+            .await
+            .unwrap();
 
         // Should have: system, demo_user, demo_assistant, current_user
         let msgs = main_lm.last_messages();
@@ -371,7 +403,10 @@ mod tests {
         let sig = Signature::from_string("question -> answer").unwrap();
         let inputs = Example::new().field("question", "test");
 
-        adapter.call(main_lm.as_ref(), &sig, &[], &inputs, &LMConfig::new("mock")).await.unwrap();
+        adapter
+            .call(main_lm.as_ref(), &sig, &[], &inputs, &LMConfig::new("mock"))
+            .await
+            .unwrap();
 
         // Extraction user message should contain the main LM's response
         let msgs = extract_lm.last_messages();

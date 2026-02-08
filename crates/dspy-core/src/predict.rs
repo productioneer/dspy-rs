@@ -80,9 +80,9 @@ impl Predict {
             return Ok(lm.clone());
         }
         let settings = get_settings();
-        settings
-            .lm
-            .ok_or_else(|| DspyError::LMError("No LM configured. Use set_lm() or configure().".into()))
+        settings.lm.ok_or_else(|| {
+            DspyError::LMError("No LM configured. Use set_lm() or configure().".into())
+        })
     }
 
     /// Get effective adapter (own > settings > ChatAdapter default)
@@ -220,11 +220,7 @@ mod tests {
 
     #[async_trait]
     impl LM for MockLM {
-        async fn call(
-            &self,
-            _messages: &[Message],
-            _config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
+        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
             Ok(self
                 .responses
                 .iter()
@@ -396,20 +392,22 @@ mod tests {
 
     #[async_trait]
     impl LM for ConfigCaptureLM {
-        async fn call(
-            &self,
-            _messages: &[Message],
-            config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
+        async fn call(&self, _messages: &[Message], config: &LMConfig) -> Result<Vec<LMResponse>> {
             *self.received_config.lock().unwrap() = Some(config.clone());
             Ok(vec![LMResponse {
                 text: "[[ ## answer ## ]]\ntest".to_string(),
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "mock" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     #[tokio::test]

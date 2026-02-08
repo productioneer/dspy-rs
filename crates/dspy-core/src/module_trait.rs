@@ -29,7 +29,8 @@ pub trait Module: Send + Sync {
             self.module_type_name(),
             &inputs,
             || self.forward(args),
-        ).await
+        )
+        .await
     }
 
     fn named_predictors(&self) -> Vec<(&str, &Predict)> {
@@ -86,9 +87,8 @@ pub trait Module: Send + Sync {
         let json = serde_json::to_string_pretty(&state).map_err(|e| {
             crate::error::DspyError::Other(format!("Failed to serialize state: {}", e))
         })?;
-        std::fs::write(path, json + "\n").map_err(|e| {
-            crate::error::DspyError::Other(format!("Failed to write file: {}", e))
-        })?;
+        std::fs::write(path, json + "\n")
+            .map_err(|e| crate::error::DspyError::Other(format!("Failed to write file: {}", e)))?;
 
         Ok(())
     }
@@ -103,12 +103,10 @@ pub trait Module: Send + Sync {
             )));
         }
 
-        let raw = std::fs::read_to_string(path).map_err(|e| {
-            crate::error::DspyError::Other(format!("Failed to read file: {}", e))
-        })?;
-        let state: serde_json::Value = serde_json::from_str(&raw).map_err(|e| {
-            crate::error::DspyError::Other(format!("Failed to parse JSON: {}", e))
-        })?;
+        let raw = std::fs::read_to_string(path)
+            .map_err(|e| crate::error::DspyError::Other(format!("Failed to read file: {}", e)))?;
+        let state: serde_json::Value = serde_json::from_str(&raw)
+            .map_err(|e| crate::error::DspyError::Other(format!("Failed to parse JSON: {}", e)))?;
 
         // Check version metadata if present
         if let Some(metadata) = state.get("metadata") {

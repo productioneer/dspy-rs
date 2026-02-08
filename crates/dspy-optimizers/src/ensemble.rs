@@ -2,9 +2,9 @@
 //! Python equivalent: dspy/teleprompt/ensemble.py
 
 use dspy_core::{Example, Module, Prediction};
+use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
-use rand::rngs::StdRng;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -41,10 +41,11 @@ pub struct EnsembleModule {
 
 impl EnsembleModule {
     pub fn new(programs: Vec<Box<dyn Module>>, config: EnsembleConfig) -> Self {
-        let reduce_fn: Arc<dyn Fn(Vec<Prediction>) -> Prediction + Send + Sync> = match config.reduce_fn {
-            ReduceFn::MajorityVote => Arc::new(majority_vote),
-            ReduceFn::Custom(f) => f,
-        };
+        let reduce_fn: Arc<dyn Fn(Vec<Prediction>) -> Prediction + Send + Sync> =
+            match config.reduce_fn {
+                ReduceFn::MajorityVote => Arc::new(majority_vote),
+                ReduceFn::Custom(f) => f,
+            };
 
         // Random sample without replacement when size < programs.len()
         // Matches Python DSPy's random.sample(programs, size)
@@ -61,7 +62,10 @@ impl EnsembleModule {
             None => programs,
         };
 
-        Self { programs, reduce_fn }
+        Self {
+            programs,
+            reduce_fn,
+        }
     }
 
     pub fn programs(&self) -> &[Box<dyn Module>] {
@@ -160,10 +164,8 @@ fn majority_vote(predictions: Vec<Prediction>) -> Prediction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::{
-        Example, LM, LMConfig, LMResponse, Message, Predict, Signature,
-    };
     use async_trait::async_trait;
+    use dspy_core::{Example, LMConfig, LMResponse, Message, Predict, Signature, LM};
 
     struct ConstLM {
         answer: String,
@@ -187,9 +189,15 @@ mod tests {
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "const" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "const"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     struct SimpleModule {
@@ -216,7 +224,9 @@ mod tests {
             vec![("predict", &mut self.predict)]
         }
         fn deep_copy(&self) -> Box<dyn Module> {
-            Box::new(SimpleModule { predict: self.predict.clone() })
+            Box::new(SimpleModule {
+                predict: self.predict.clone(),
+            })
         }
     }
 
@@ -239,9 +249,8 @@ mod tests {
     #[tokio::test]
     async fn test_ensemble_single_program() {
         dspy_core::reset_settings();
-        let programs: Vec<Box<dyn Module>> = vec![
-            Box::new(SimpleModule::new(Arc::new(ConstLM::new("only")))),
-        ];
+        let programs: Vec<Box<dyn Module>> =
+            vec![Box::new(SimpleModule::new(Arc::new(ConstLM::new("only"))))];
 
         let ensemble = EnsembleModule::new(programs, EnsembleConfig::default());
         let input = Example::new().field("q", "test");
@@ -275,10 +284,13 @@ mod tests {
             Box::new(SimpleModule::new(Arc::new(ConstLM::new("c")))),
         ];
 
-        let ensemble = EnsembleModule::new(programs, EnsembleConfig {
-            reduce_fn: ReduceFn::MajorityVote,
-            size: Some(2),
-        });
+        let ensemble = EnsembleModule::new(
+            programs,
+            EnsembleConfig {
+                reduce_fn: ReduceFn::MajorityVote,
+                size: Some(2),
+            },
+        );
 
         assert_eq!(ensemble.programs().len(), 2);
     }

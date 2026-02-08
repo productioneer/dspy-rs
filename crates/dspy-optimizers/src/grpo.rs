@@ -7,8 +7,7 @@
 //! Full implementation requires a Provider/ReinforceJob backend that supports online RL training.
 
 use dspy_core::{
-    bootstrap_trace_data, BootstrapTraceOptions, Example,
-    GRPOChatData, GRPOGroup, Metric, Module,
+    bootstrap_trace_data, BootstrapTraceOptions, Example, GRPOChatData, GRPOGroup, Metric, Module,
     TraceData, TrainingMessage,
 };
 
@@ -59,7 +58,8 @@ impl GRPOConfig {
         }
         if !self.multitask {
             return Err(dspy_core::DspyError::OptimizationError(
-                "Independent GRPO training jobs for each predictor is not supported yet.".to_string(),
+                "Independent GRPO training jobs for each predictor is not supported yet."
+                    .to_string(),
             ));
         }
         if self.use_train_as_val && !self.report_train_scores {
@@ -175,8 +175,7 @@ impl GRPO {
                 }
                 output_parts.push("[[ ## completed ## ]]".to_string());
 
-                let completion =
-                    TrainingMessage::assistant(&output_parts.join("\n\n"));
+                let completion = TrainingMessage::assistant(&output_parts.join("\n\n"));
 
                 let reward = td.score.unwrap_or(0.0);
                 group_data.push(GRPOChatData {
@@ -201,10 +200,8 @@ impl GRPO {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::{
-        Example, LM, LMConfig, LMResponse, Message, Predict, Prediction, Signature,
-    };
     use async_trait::async_trait;
+    use dspy_core::{Example, LMConfig, LMResponse, Message, Predict, Prediction, Signature, LM};
     use std::sync::Arc;
 
     struct MockLM {
@@ -248,8 +245,7 @@ mod tests {
 
     impl SimpleQA {
         fn new() -> Self {
-            let mut predict =
-                Predict::new(Signature::from_string("question -> answer").unwrap());
+            let mut predict = Predict::new(Signature::from_string("question -> answer").unwrap());
             predict.set_lm(Arc::new(MockLM::new()));
             Self { predict }
         }

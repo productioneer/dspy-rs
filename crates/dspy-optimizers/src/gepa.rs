@@ -10,7 +10,7 @@
 //!
 //! Python equivalent: dspy/teleprompt/gepa/
 
-use dspy_core::{Example, LM, LMConfig, Module, Prediction};
+use dspy_core::{Example, LMConfig, Module, Prediction, LM};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -31,8 +31,7 @@ pub struct ScoreWithFeedback {
 }
 
 /// GEPA feedback metric. Returns either a numeric score or a ScoreWithFeedback.
-pub type GEPAFeedbackMetric =
-    Arc<dyn Fn(&Example, &Prediction) -> GEPAMetricResult + Send + Sync>;
+pub type GEPAFeedbackMetric = Arc<dyn Fn(&Example, &Prediction) -> GEPAMetricResult + Send + Sync>;
 
 /// Return type of GEPA feedback metric.
 pub enum GEPAMetricResult {
@@ -58,11 +57,7 @@ impl GEPAMetricResult {
 
 /// Custom instruction proposer function type.
 pub type ProposalFn = Arc<
-    dyn Fn(
-            &Candidate,
-            &HashMap<String, Vec<ReflectiveExample>>,
-            &[String],
-        ) -> Candidate
+    dyn Fn(&Candidate, &HashMap<String, Vec<ReflectiveExample>>, &[String]) -> Candidate
         + Send
         + Sync,
 >;
@@ -535,9 +530,7 @@ fn find_common_ancestor_pair(
                 if merges_performed.contains(&key) {
                     return false;
                 }
-                if agg_scores[ancestor] > agg_scores[i]
-                    || agg_scores[ancestor] > agg_scores[j]
-                {
+                if agg_scores[ancestor] > agg_scores[i] || agg_scores[ancestor] > agg_scores[j] {
                     return false;
                 }
                 // Check desirable predictors
@@ -665,7 +658,10 @@ fn attempt_merge(
             .filter(|id| !selected.contains(id))
             .copied()
             .collect();
-        let take = available.len().min(n_each).min(num_subsample - selected.len());
+        let take = available
+            .len()
+            .min(n_each)
+            .min(num_subsample - selected.len());
         if take > 0 {
             let mut shuffled = available;
             shuffle_vec(&mut shuffled, rng);
@@ -697,10 +693,7 @@ fn attempt_merge(
         candidate: new_program,
         parent_program_ids: vec![id1, id2],
         subsample_indices: subsample_ids,
-        subsample_scores_before: vec![
-            id1_sub_scores.iter().sum(),
-            id2_sub_scores.iter().sum(),
-        ],
+        subsample_scores_before: vec![id1_sub_scores.iter().sum(), id2_sub_scores.iter().sum()],
         subsample_scores_after: Vec::new(),
     })
 }
@@ -803,12 +796,7 @@ impl GEPA {
     }
 
     /// Auto-budget calculation matching Python GEPA.
-    fn auto_budget(
-        &self,
-        num_preds: usize,
-        num_candidates: usize,
-        valset_size: usize,
-    ) -> usize {
+    fn auto_budget(&self, num_preds: usize, num_candidates: usize, valset_size: usize) -> usize {
         let minibatch_size = 35;
         let full_eval_steps = 5;
 
@@ -833,7 +821,10 @@ impl GEPA {
         trainset: &[Example],
         valset: Option<&[Example]>,
     ) -> dspy_core::Result<GEPAResult> {
-        assert!(!trainset.is_empty(), "Trainset must be provided and non-empty");
+        assert!(
+            !trainset.is_empty(),
+            "Trainset must be provided and non-empty"
+        );
 
         let effective_valset = valset.unwrap_or(trainset);
 
@@ -946,8 +937,7 @@ impl GEPA {
             let curr_prog = state.program_candidates[candidate_idx].clone();
 
             // Sample minibatch from trainset
-            let subsample_ids =
-                batch_sampler.next_minibatch_ids(trainset.len(), state.i as usize);
+            let subsample_ids = batch_sampler.next_minibatch_ids(trainset.len(), state.i as usize);
             let minibatch: Vec<Example> =
                 subsample_ids.iter().map(|&i| trainset[i].clone()).collect();
 
@@ -1212,10 +1202,7 @@ impl GEPA {
                             ),
                         }
                     } else {
-                        format!(
-                            "This trajectory got a score of {:.2}.",
-                            traj.score
-                        )
+                        format!("This trajectory got a score of {:.2}.", traj.score)
                     };
 
                     items.push(ReflectiveExample {
@@ -1247,7 +1234,11 @@ impl GEPA {
         components_to_update: &[String],
     ) -> dspy_core::Result<Candidate> {
         if let Some(ref proposer) = self.config.instruction_proposer {
-            return Ok(proposer(candidate, reflective_dataset, components_to_update));
+            return Ok(proposer(
+                candidate,
+                reflective_dataset,
+                components_to_update,
+            ));
         }
 
         let reflection_lm = self.config.reflection_lm.as_ref().ok_or_else(|| {
@@ -1274,10 +1265,7 @@ impl GEPA {
 
             match reflection_lm.call(&messages, &config).await {
                 Ok(responses) => {
-                    let text = responses
-                        .first()
-                        .map(|r| r.text.as_str())
-                        .unwrap_or("");
+                    let text = responses.first().map(|r| r.text.as_str()).unwrap_or("");
                     results.insert(name.clone(), extract_instruction_from_lm_output(text));
                 }
                 Err(_) => continue,
@@ -1547,8 +1535,7 @@ mod tests {
     async fn test_compile_minimal_budget() {
         dspy_core::reset_settings();
         let lm: Arc<dyn LM> = Arc::new(MockLM::new("42"));
-        let metric: GEPAFeedbackMetric =
-            Arc::new(|_, _| GEPAMetricResult::Score(0.5));
+        let metric: GEPAFeedbackMetric = Arc::new(|_, _| GEPAMetricResult::Score(0.5));
 
         let sig = Signature::from_string("question -> answer").unwrap();
         let student = SimpleModule::new(sig).with_lm(lm.clone());
@@ -1575,8 +1562,7 @@ mod tests {
     async fn test_compile_with_custom_proposer() {
         dspy_core::reset_settings();
         let lm: Arc<dyn LM> = Arc::new(MockLM::new("42"));
-        let metric: GEPAFeedbackMetric =
-            Arc::new(|_, _| GEPAMetricResult::Score(0.5));
+        let metric: GEPAFeedbackMetric = Arc::new(|_, _| GEPAMetricResult::Score(0.5));
         let proposer: ProposalFn = Arc::new(|candidate, _, components| {
             let mut result = Candidate::new();
             for c in components {
@@ -1610,8 +1596,7 @@ mod tests {
     async fn test_compile_with_valset() {
         dspy_core::reset_settings();
         let lm: Arc<dyn LM> = Arc::new(MockLM::new("42"));
-        let metric: GEPAFeedbackMetric =
-            Arc::new(|_, _| GEPAMetricResult::Score(0.7));
+        let metric: GEPAFeedbackMetric = Arc::new(|_, _| GEPAMetricResult::Score(0.7));
 
         let sig = Signature::from_string("q -> answer").unwrap();
         let student = SimpleModule::new(sig).with_lm(lm.clone());
@@ -1641,8 +1626,7 @@ mod tests {
     async fn test_compile_skips_perfect_scores() {
         dspy_core::reset_settings();
         let lm: Arc<dyn LM> = Arc::new(MockLM::new("42"));
-        let metric: GEPAFeedbackMetric =
-            Arc::new(|_, _| GEPAMetricResult::Score(1.0));
+        let metric: GEPAFeedbackMetric = Arc::new(|_, _| GEPAMetricResult::Score(1.0));
 
         let sig = Signature::from_string("q -> answer").unwrap();
         let student = SimpleModule::new(sig).with_lm(lm.clone());
@@ -1669,8 +1653,7 @@ mod tests {
     async fn test_compile_two_predictors_round_robin() {
         dspy_core::reset_settings();
         let lm: Arc<dyn LM> = Arc::new(MockLM::new("42"));
-        let metric: GEPAFeedbackMetric =
-            Arc::new(|_, _| GEPAMetricResult::Score(0.6));
+        let metric: GEPAFeedbackMetric = Arc::new(|_, _| GEPAMetricResult::Score(0.6));
 
         let sig1 = Signature::from_string("question -> answer").unwrap();
         let sig2 = Signature::from_string("answer -> summary").unwrap();
@@ -1698,8 +1681,7 @@ mod tests {
     async fn test_compile_current_best_selection() {
         dspy_core::reset_settings();
         let lm: Arc<dyn LM> = Arc::new(MockLM::new("42"));
-        let metric: GEPAFeedbackMetric =
-            Arc::new(|_, _| GEPAMetricResult::Score(0.5));
+        let metric: GEPAFeedbackMetric = Arc::new(|_, _| GEPAMetricResult::Score(0.5));
 
         let sig = Signature::from_string("q -> answer").unwrap();
         let student = SimpleModule::new(sig).with_lm(lm.clone());

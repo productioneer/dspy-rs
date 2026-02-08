@@ -265,13 +265,11 @@ impl DSPyFile {
         mime_type: Option<&str>,
     ) -> std::io::Result<Self> {
         let data = std::fs::read(path)?;
-        let fname = filename
-            .map(|s| s.to_string())
-            .or_else(|| {
-                path.file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|s| s.to_string())
-            });
+        let fname = filename.map(|s| s.to_string()).or_else(|| {
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+        });
         let ext = path
             .extension()
             .and_then(|e| e.to_str())
@@ -684,16 +682,10 @@ impl Citation {
             JsonValue::Number(serde_json::Number::from(self.end_char_index)),
         );
         if let Some(ref title) = self.document_title {
-            result.insert(
-                "document_title".into(),
-                JsonValue::String(title.clone()),
-            );
+            result.insert("document_title".into(), JsonValue::String(title.clone()));
         }
         if let Some(ref text) = self.supported_text {
-            result.insert(
-                "supported_text".into(),
-                JsonValue::String(text.clone()),
-            );
+            result.insert("supported_text".into(), JsonValue::String(text.clone()));
         }
         result
     }
@@ -772,11 +764,7 @@ impl Citations {
 
 impl AdapterType for Citations {
     fn format(&self) -> AdapterTypeOutput {
-        let blocks: Vec<ContentBlock> = self
-            .citations
-            .iter()
-            .map(|c| c.format())
-            .collect();
+        let blocks: Vec<ContentBlock> = self.citations.iter().map(|c| c.format()).collect();
         AdapterTypeOutput::Blocks(blocks)
     }
 
@@ -855,29 +843,21 @@ pub fn split_message_content_for_custom_types(messages: &mut [TypedMessage]) {
                 if let Some(arr) = parsed.as_array() {
                     for item in arr {
                         if let Some(obj) = item.as_object() {
-                            let block: ContentBlock = obj
-                                .iter()
-                                .map(|(k, v)| (k.clone(), v.clone()))
-                                .collect();
+                            let block: ContentBlock =
+                                obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
                             result.push(block);
                         }
                     }
                 } else {
                     let mut block = ContentBlock::new();
                     block.insert("type".into(), JsonValue::String("text".into()));
-                    block.insert(
-                        "text".into(),
-                        JsonValue::String(custom_content.into()),
-                    );
+                    block.insert("text".into(), JsonValue::String(custom_content.into()));
                     result.push(block);
                 }
             } else {
                 let mut block = ContentBlock::new();
                 block.insert("type".into(), JsonValue::String("text".into()));
-                block.insert(
-                    "text".into(),
-                    JsonValue::String(custom_content.into()),
-                );
+                block.insert("text".into(), JsonValue::String(custom_content.into()));
                 result.push(block);
             }
 
@@ -1009,10 +989,7 @@ mod tests {
                 assert_eq!(blocks.len(), 1);
                 assert_eq!(blocks[0]["type"], "file");
                 let inner = blocks[0]["file"].as_object().unwrap();
-                assert_eq!(
-                    inner["file_data"],
-                    "data:application/pdf;base64,abc123"
-                );
+                assert_eq!(inner["file_data"], "data:application/pdf;base64,abc123");
                 assert_eq!(inner["filename"], "test.pdf");
             }
             _ => panic!("Expected Blocks"),
@@ -1035,7 +1012,11 @@ mod tests {
     #[test]
     fn dspy_file_from_bytes() {
         let file = DSPyFile::from_bytes(b"content", Some("test.txt"), "text/plain");
-        assert!(file.file_data.as_ref().unwrap().starts_with("data:text/plain;base64,"));
+        assert!(file
+            .file_data
+            .as_ref()
+            .unwrap()
+            .starts_with("data:text/plain;base64,"));
         assert_eq!(file.filename.as_deref(), Some("test.txt"));
     }
 
@@ -1377,10 +1358,7 @@ mod tests {
         match c.format() {
             AdapterTypeOutput::Blocks(blocks) => {
                 assert_eq!(blocks.len(), 1);
-                assert_eq!(
-                    blocks[0]["cited_text"],
-                    JsonValue::String("test".into())
-                );
+                assert_eq!(blocks[0]["cited_text"], JsonValue::String("test".into()));
             }
             _ => panic!("Expected Blocks"),
         }
@@ -1477,8 +1455,7 @@ mod tests {
         let img2 = serde_json::json!([{"type": "image_url", "image_url": {"url": "b"}}]);
         let content = format!(
             "{}{}{} and {}{}{}",
-            CUSTOM_TYPE_START, img1, CUSTOM_TYPE_END,
-            CUSTOM_TYPE_START, img2, CUSTOM_TYPE_END
+            CUSTOM_TYPE_START, img1, CUSTOM_TYPE_END, CUSTOM_TYPE_START, img2, CUSTOM_TYPE_END
         );
         let mut messages = vec![TypedMessage {
             role: "user".into(),

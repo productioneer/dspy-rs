@@ -100,11 +100,7 @@ impl AvatarOptimizer {
     }
 
     /// Process a single example through the actor and metric.
-    async fn process_example(
-        &self,
-        actor: &dyn Module,
-        example: &Example,
-    ) -> EvalResult {
+    async fn process_example(&self, actor: &dyn Module, example: &Example) -> EvalResult {
         match actor.call(example).await {
             Ok(prediction) => {
                 let score = (self.config.metric)(example, &prediction);
@@ -123,11 +119,7 @@ impl AvatarOptimizer {
     }
 
     /// Evaluate actor on dataset, collecting results.
-    async fn evaluate_dataset(
-        &self,
-        actor: &dyn Module,
-        dataset: &[Example],
-    ) -> Vec<EvalResult> {
+    async fn evaluate_dataset(&self, actor: &dyn Module, dataset: &[Example]) -> Vec<EvalResult> {
         let mut results = Vec::new();
         for example in dataset {
             let result = self.process_example(actor, example).await;
@@ -220,7 +212,8 @@ impl AvatarOptimizer {
                 .iter()
                 .map(|r| {
                     let inputs = r.example.inputs();
-                    let inputs_str = inputs.to_map()
+                    let inputs_str = inputs
+                        .to_map()
                         .iter()
                         .map(|(k, v)| format!("{}={}", k, v))
                         .collect::<Vec<_>>()
@@ -233,7 +226,8 @@ impl AvatarOptimizer {
                 .iter()
                 .map(|r| {
                     let inputs = r.example.inputs();
-                    let inputs_str = inputs.to_map()
+                    let inputs_str = inputs
+                        .to_map()
                         .iter()
                         .map(|(k, v)| format!("{}={}", k, v))
                         .collect::<Vec<_>>()
@@ -302,10 +296,8 @@ impl AvatarOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::{
-        Example, LM, LMConfig, LMResponse, Message, Predict, Prediction, Signature,
-    };
     use async_trait::async_trait;
+    use dspy_core::{Example, LMConfig, LMResponse, Message, Predict, Prediction, Signature, LM};
     use std::sync::Arc;
 
     struct MockLM {
@@ -349,8 +341,7 @@ mod tests {
 
     impl SimpleQA {
         fn new() -> Self {
-            let mut predict =
-                Predict::new(Signature::from_string("question -> answer").unwrap());
+            let mut predict = Predict::new(Signature::from_string("question -> answer").unwrap());
             predict.set_lm(Arc::new(MockLM::new()));
             Self { predict }
         }

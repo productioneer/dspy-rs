@@ -153,9 +153,15 @@ mod tests {
     #[test]
     fn test_knn_basic() {
         let trainset = vec![
-            Example::new().field("question", "What is Paris?").with_inputs(&["question"]),
-            Example::new().field("question", "What is Berlin?").with_inputs(&["question"]),
-            Example::new().field("question", "What is London?").with_inputs(&["question"]),
+            Example::new()
+                .field("question", "What is Paris?")
+                .with_inputs(&["question"]),
+            Example::new()
+                .field("question", "What is Berlin?")
+                .with_inputs(&["question"]),
+            Example::new()
+                .field("question", "What is London?")
+                .with_inputs(&["question"]),
         ];
 
         let knn = KNN::new(2, trainset, mock_embedder());
@@ -187,9 +193,7 @@ mod tests {
 
     #[test]
     fn test_knn_zero_k() {
-        let trainset = vec![
-            Example::new().field("q", "hello").with_inputs(&["q"]),
-        ];
+        let trainset = vec![Example::new().field("q", "hello").with_inputs(&["q"])];
 
         let knn = KNN::new(0, trainset, mock_embedder());
         let results = knn.query(&[("q", "hello")]);
@@ -211,16 +215,16 @@ mod tests {
         });
 
         let trainset = vec![
-            Example::new().field("word", "apple").with_inputs(&["word"]),  // 'a'=97, len=5
-            Example::new().field("word", "ant").with_inputs(&["word"]),    // 'a'=97, len=3
-            Example::new().field("word", "zoo").with_inputs(&["word"]),    // 'z'=122, len=3
+            Example::new().field("word", "apple").with_inputs(&["word"]), // 'a'=97, len=5
+            Example::new().field("word", "ant").with_inputs(&["word"]),   // 'a'=97, len=3
+            Example::new().field("word", "zoo").with_inputs(&["word"]),   // 'z'=122, len=3
         ];
 
         let knn = KNN::new(3, trainset, embedder);
         let results = knn.query(&[("word", "art")]); // 'a'=97, len=3
-        // "ant" has same first char 'a' and len 3 — most similar
-        // "apple" has same first char 'a' but different len
-        // "zoo" different first char
+                                                     // "ant" has same first char 'a' and len 3 — most similar
+                                                     // "apple" has same first char 'a' but different len
+                                                     // "zoo" different first char
         assert_eq!(results.len(), 3);
     }
 

@@ -7,7 +7,7 @@
 //!
 //! Python equivalent: dspy/teleprompt/mipro_optimizer_v2.py
 
-use dspy_core::{Example, Evaluate, EvaluateConfig, LM, Metric, Module};
+use dspy_core::{Evaluate, EvaluateConfig, Example, Metric, Module, LM};
 use dspy_propose::{GroundedProposer, ProposerConfig};
 use dspy_tpe::{Direction, Study, TPESampler};
 use rand::rngs::StdRng;
@@ -167,15 +167,20 @@ impl MIPROv2 {
         };
 
         // Determine hyperparameters from auto mode
-        let (num_trials, effective_val, use_minibatch, num_instruct_candidates, num_fewshot_candidates) =
-            self.resolve_hyperparams(
-                student,
-                &val_data,
-                options.num_trials,
-                options.minibatch,
-                zeroshot,
-                &mut rng,
-            );
+        let (
+            num_trials,
+            effective_val,
+            use_minibatch,
+            num_instruct_candidates,
+            num_fewshot_candidates,
+        ) = self.resolve_hyperparams(
+            student,
+            &val_data,
+            options.num_trials,
+            options.minibatch,
+            zeroshot,
+            &mut rng,
+        );
 
         // Step 1: Bootstrap few-shot examples
         let demo_candidates = if !zeroshot {
@@ -244,7 +249,10 @@ impl MIPROv2 {
                 let effective_val: Vec<Example> = if val_size < valset.len() {
                     let mut indices: Vec<usize> = (0..valset.len()).collect();
                     indices.shuffle(rng);
-                    indices[..val_size].iter().map(|&i| valset[i].clone()).collect()
+                    indices[..val_size]
+                        .iter()
+                        .map(|&i| valset[i].clone())
+                        .collect()
                 } else {
                     valset.to_vec()
                 };
@@ -257,7 +265,13 @@ impl MIPROv2 {
                 let computed_trials = ((2.0 * effective_vars as f64 * (n as f64).log2())
                     .max(1.5 * n as f64)) as usize;
 
-                (computed_trials, effective_val, use_minibatch, num_instruct, num_fewshot)
+                (
+                    computed_trials,
+                    effective_val,
+                    use_minibatch,
+                    num_instruct,
+                    num_fewshot,
+                )
             }
             None => {
                 let n = self.config.num_candidates.unwrap_or(6);
@@ -358,19 +372,10 @@ impl MIPROv2 {
             ..Default::default()
         };
 
-        let mut proposer = GroundedProposer::new(
-            self.config.prompt_model.clone(),
-            config,
-            seed,
-        );
+        let mut proposer = GroundedProposer::new(self.config.prompt_model.clone(), config, seed);
 
         let mut instructions = proposer
-            .propose_instructions_for_program(
-                student,
-                trainset,
-                demo_candidates,
-                num_candidates,
-            )
+            .propose_instructions_for_program(student, trainset, demo_candidates, num_candidates)
             .await;
 
         // Prepend the original instruction as candidate 0 for each predictor
@@ -403,7 +408,9 @@ impl MIPROv2 {
     ) -> dspy_core::Result<MIPROv2Result> {
         let sampler = TPESampler::new(seed).with_n_startup_trials(
             // Startup with random for first ~sqrt(num_trials) trials
-            ((num_trials as f64).sqrt().ceil() as usize).max(3).min(num_trials),
+            ((num_trials as f64).sqrt().ceil() as usize)
+                .max(3)
+                .min(num_trials),
         );
         let mut study = Study::new(Direction::Maximize, sampler);
 
@@ -427,11 +434,14 @@ impl MIPROv2 {
         let mut best_program = student.deep_copy();
         let mut trial_logs = HashMap::new();
 
-        trial_logs.insert(0, TrialLog {
-            score: default_score,
-            is_full_eval: true,
-            params: HashMap::new(),
-        });
+        trial_logs.insert(
+            0,
+            TrialLog {
+                score: default_score,
+                is_full_eval: true,
+                params: HashMap::new(),
+            },
+        );
 
         // Track minibatch scores for full evaluation selection
         let mut minibatch_scores: Vec<(f64, HashMap<String, usize>)> = Vec::new();
@@ -441,23 +451,15 @@ impl MIPROv2 {
             // Use the study to suggest parameters via ask/tell API
             let mut chosen_params = HashMap::new();
             for i in 0..num_predictors {
-                let n_instructions = instruction_candidates
-                    .get(&i)
-                    .map(|v| v.len())
-                    .unwrap_or(1);
-                let inst_idx = study.suggest_categorical(
-                    &format!("{i}_instruction"),
-                    n_instructions,
-                );
+                let n_instructions = instruction_candidates.get(&i).map(|v| v.len()).unwrap_or(1);
+                let inst_idx =
+                    study.suggest_categorical(&format!("{i}_instruction"), n_instructions);
                 chosen_params.insert(format!("{i}_instruction"), inst_idx);
 
                 if let Some(dc) = demo_candidates {
                     if i < dc.len() {
                         let n_demos = dc[i].len().max(1);
-                        let demo_idx = study.suggest_categorical(
-                            &format!("{i}_demos"),
-                            n_demos,
-                        );
+                        let demo_idx = study.suggest_categorical(&format!("{i}_demos"), n_demos);
                         chosen_params.insert(format!("{i}_demos"), demo_idx);
                     }
                 }
@@ -471,7 +473,8 @@ impl MIPROv2 {
                 if let Some(&inst_idx) = chosen_params.get(&format!("{i}_instruction")) {
                     if let Some(candidates) = instruction_candidates.get(&i) {
                         if inst_idx < candidates.len() {
-                            pred.signature = pred.signature.with_instructions(&candidates[inst_idx]);
+                            pred.signature =
+                                pred.signature.with_instructions(&candidates[inst_idx]);
                         }
                     }
                 }
@@ -496,7 +499,9 @@ impl MIPROv2 {
                 valset.to_vec()
             };
 
-            let score = self.evaluate_program(&*candidate_program, &eval_set).await?;
+            let score = self
+                .evaluate_program(&*candidate_program, &eval_set)
+                .await?;
 
             // Record the trial with the REAL score so TPE can learn
             study.record_trial(chosen_params.clone(), score);
@@ -510,14 +515,18 @@ impl MIPROv2 {
                 minibatch_scores.push((score, chosen_params.clone()));
             }
 
-            trial_logs.insert(trial_i + 1, TrialLog {
-                score,
-                is_full_eval: !use_minibatch,
-                params: chosen_params,
-            });
+            trial_logs.insert(
+                trial_i + 1,
+                TrialLog {
+                    score,
+                    is_full_eval: !use_minibatch,
+                    params: chosen_params,
+                },
+            );
 
             // Minibatch full evaluation at intervals
-            if use_minibatch && full_eval_steps > 0
+            if use_minibatch
+                && full_eval_steps > 0
                 && ((trial_i + 1) % full_eval_steps == 0 || trial_i == num_trials - 1)
             {
                 // Find best-averaging param combo from minibatch trials
@@ -529,7 +538,8 @@ impl MIPROv2 {
                         if let Some(&inst_idx) = best_combo.get(&format!("{i}_instruction")) {
                             if let Some(candidates) = instruction_candidates.get(&i) {
                                 if inst_idx < candidates.len() {
-                                    pred.signature = pred.signature.with_instructions(&candidates[inst_idx]);
+                                    pred.signature =
+                                        pred.signature.with_instructions(&candidates[inst_idx]);
                                 }
                             }
                         }
@@ -572,7 +582,8 @@ impl MIPROv2 {
         }
 
         // Group by param combo key
-        let mut combo_scores: HashMap<String, (f64, usize, HashMap<String, usize>)> = HashMap::new();
+        let mut combo_scores: HashMap<String, (f64, usize, HashMap<String, usize>)> =
+            HashMap::new();
         for (score, params) in scores {
             let key = Self::param_key(params);
             let entry = combo_scores.entry(key).or_insert((0.0, 0, params.clone()));
@@ -594,7 +605,10 @@ impl MIPROv2 {
     fn param_key(params: &HashMap<String, usize>) -> String {
         let mut keys: Vec<_> = params.iter().collect();
         keys.sort_by_key(|(k, _)| (*k).clone());
-        keys.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join(",")
+        keys.iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join(",")
     }
 
     async fn evaluate_program(
@@ -661,24 +675,29 @@ mod tests {
             _config: &LMConfig,
         ) -> dspy_core::Result<Vec<LMResponse>> {
             // Check if this is a proposer call (looking for "proposed_instruction" in output)
-            let is_proposer = messages
-                .iter()
-                .any(|m| m.content.contains("proposed_instruction") || m.content.contains("PROPOSED INSTRUCTION"));
+            let is_proposer = messages.iter().any(|m| {
+                m.content.contains("proposed_instruction")
+                    || m.content.contains("PROPOSED INSTRUCTION")
+            });
 
             let text = if is_proposer {
-                "[[ ## proposed_instruction ## ]]\nImproved: answer accurately and completely".to_string()
+                "[[ ## proposed_instruction ## ]]\nImproved: answer accurately and completely"
+                    .to_string()
             } else {
                 format!("[[ ## answer ## ]]\n{}", self.answer)
             };
 
-            Ok(vec![LMResponse {
-                text,
-                usage: None,
-            }])
+            Ok(vec![LMResponse { text, usage: None }])
         }
-        fn model(&self) -> &str { "mock" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     struct SimpleModule {
@@ -687,7 +706,9 @@ mod tests {
 
     impl SimpleModule {
         fn new(sig: Signature) -> Self {
-            Self { predict: Predict::new(sig) }
+            Self {
+                predict: Predict::new(sig),
+            }
         }
         fn with_lm(mut self, lm: Arc<dyn LM>) -> Self {
             self.predict.set_lm(lm);
@@ -730,10 +751,15 @@ mod tests {
         let metric: Metric = Arc::new(|example, prediction| {
             let expected = example.get_str("answer").unwrap_or("");
             let got = prediction.get_str("answer").unwrap_or("");
-            if expected == got { 1.0 } else { 0.0 }
+            if expected == got {
+                1.0
+            } else {
+                0.0
+            }
         });
 
-        let sig = Signature::from_string("question -> answer").unwrap()
+        let sig = Signature::from_string("question -> answer")
+            .unwrap()
             .with_instructions("Answer the question");
         let student = SimpleModule::new(sig).with_lm(lm.clone());
 
@@ -768,7 +794,11 @@ mod tests {
         let metric: Metric = Arc::new(|example, prediction| {
             let expected = example.get_str("answer").unwrap_or("");
             let got = prediction.get_str("answer").unwrap_or("");
-            if expected == got { 1.0 } else { 0.0 }
+            if expected == got {
+                1.0
+            } else {
+                0.0
+            }
         });
 
         let sig = Signature::from_string("question -> answer").unwrap();

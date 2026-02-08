@@ -56,12 +56,9 @@ impl Evaluate {
         let inputs = serde_json::json!({
             "devsetSize": self.devset.len(),
         });
-        with_callbacks_async(
-            ComponentType::Evaluate,
-            "Evaluate",
-            &inputs,
-            || self.run_inner(program),
-        )
+        with_callbacks_async(ComponentType::Evaluate, "Evaluate", &inputs, || {
+            self.run_inner(program)
+        })
         .await
     }
 
@@ -141,11 +138,7 @@ mod tests {
 
     #[async_trait]
     impl LM for FixedLM {
-        async fn call(
-            &self,
-            _messages: &[Message],
-            _config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
+        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
             Ok(vec![LMResponse {
                 text: format!("[[ ## answer ## ]]\n{}", self.answer),
                 usage: None,
@@ -249,9 +242,7 @@ mod tests {
         let sig = Signature::from_string("q -> a").unwrap();
         let predict = Predict::new(sig);
 
-        let devset = vec![
-            Example::new().field("q", "Q1").with_inputs(&["q"]),
-        ];
+        let devset = vec![Example::new().field("q", "Q1").with_inputs(&["q"])];
 
         let metric: Metric = Arc::new(|_, _| 1.0);
         let eval = Evaluate::new(

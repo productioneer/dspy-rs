@@ -318,10 +318,7 @@ impl Signature {
     }
 
     pub fn load_state(state: &serde_json::Value) -> Result<Self> {
-        let instructions = state["instructions"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
+        let instructions = state["instructions"].as_str().unwrap_or("").to_string();
 
         let fields_arr = state["fields"]
             .as_array()
@@ -336,11 +333,7 @@ impl Signature {
             let ft = match f_val["field_type"].as_str() {
                 Some("input") => FieldType::Input,
                 Some("output") => FieldType::Output,
-                _ => {
-                    return Err(DspyError::ParseError(
-                        "Invalid field_type".into(),
-                    ))
-                }
+                _ => return Err(DspyError::ParseError("Invalid field_type".into())),
             };
             let f = FieldDef {
                 name: name.clone(),
@@ -360,14 +353,8 @@ impl Signature {
 
     /// Generate the shorthand string representation
     pub fn to_shorthand(&self) -> String {
-        let inputs: Vec<&str> = self
-            .input_fields()
-            .map(|(k, _)| k.as_str())
-            .collect();
-        let outputs: Vec<&str> = self
-            .output_fields()
-            .map(|(k, _)| k.as_str())
-            .collect();
+        let inputs: Vec<&str> = self.input_fields().map(|(k, _)| k.as_str()).collect();
+        let outputs: Vec<&str> = self.output_fields().map(|(k, _)| k.as_str()).collect();
         format!("{} -> {}", inputs.join(", "), outputs.join(", "))
     }
 }
@@ -377,8 +364,8 @@ impl Signature {
 /// In Python DSPy, "question: str" parses "str" as a type annotation; the description
 /// remains the default (empty). We match this by stripping type-only annotations.
 const PYTHON_TYPE_NAMES: &[&str] = &[
-    "str", "int", "float", "bool", "list", "dict", "tuple", "set",
-    "List", "Dict", "Tuple", "Set", "Optional", "Any",
+    "str", "int", "float", "bool", "list", "dict", "tuple", "set", "List", "Dict", "Tuple", "Set",
+    "Optional", "Any",
 ];
 
 fn parse_field_with_desc(s: &str) -> (String, Option<String>) {
@@ -525,11 +512,17 @@ mod tests {
     fn test_with_instructions() {
         let sig = Signature::from_string("q -> a").unwrap();
         // from_string auto-generates instructions (matching Python DSPy behavior)
-        assert_eq!(sig.instructions(), "Given the fields `q`, produce the fields `a`.");
+        assert_eq!(
+            sig.instructions(),
+            "Given the fields `q`, produce the fields `a`."
+        );
         let sig2 = sig.with_instructions("Do something");
         assert_eq!(sig2.instructions(), "Do something");
         // Original unchanged
-        assert_eq!(sig.instructions(), "Given the fields `q`, produce the fields `a`.");
+        assert_eq!(
+            sig.instructions(),
+            "Given the fields `q`, produce the fields `a`."
+        );
     }
 
     #[test]

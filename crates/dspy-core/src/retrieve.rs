@@ -38,10 +38,7 @@ pub fn set_global_retriever(rm: Option<Arc<dyn RetrieverModule>>) {
 
 /// Get the global retriever module.
 pub fn get_global_retriever() -> Option<Arc<dyn RetrieverModule>> {
-    GLOBAL_RETRIEVER
-        .lock()
-        .ok()
-        .and_then(|g| g.clone())
+    GLOBAL_RETRIEVER.lock().ok().and_then(|g| g.clone())
 }
 
 /// Retrieve parameter — takes a search query and returns relevant passages.
@@ -103,25 +100,21 @@ impl Retrieve {
     ) -> Result<Prediction> {
         let num_results = k.unwrap_or(self.k);
         let inputs = serde_json::json!({ "query": query, "k": num_results });
-        with_callbacks_async(
-            ComponentType::Module,
-            "Retrieve",
-            &inputs,
-            || async {
-                let rm = get_global_retriever().ok_or_else(|| {
-                    DspyError::Other(
-                        "No retrieval module is configured. Set one via set_global_retriever().".to_string(),
-                    )
-                })?;
+        with_callbacks_async(ComponentType::Module, "Retrieve", &inputs, || async {
+            let rm = get_global_retriever().ok_or_else(|| {
+                DspyError::Other(
+                    "No retrieval module is configured. Set one via set_global_retriever()."
+                        .to_string(),
+                )
+            })?;
 
-                let passages = rm.retrieve(query, num_results, kwargs.as_ref()).await?;
-                let passage_values: Vec<Value> = passages.into_iter().map(Value::from).collect();
+            let passages = rm.retrieve(query, num_results, kwargs.as_ref()).await?;
+            let passage_values: Vec<Value> = passages.into_iter().map(Value::from).collect();
 
-                let mut data = HashMap::new();
-                data.insert("passages".to_string(), Value::List(passage_values));
-                Ok(Prediction::new(data))
-            },
-        )
+            let mut data = HashMap::new();
+            data.insert("passages".to_string(), Value::List(passage_values));
+            Ok(Prediction::new(data))
+        })
         .await
     }
 }
@@ -183,11 +176,7 @@ mod tests {
     async fn test_retrieve_override_k() {
         let _lock = TEST_MUTEX.lock().unwrap();
         let mock = Arc::new(MockRetriever {
-            passages: vec![
-                "A".to_string(),
-                "B".to_string(),
-                "C".to_string(),
-            ],
+            passages: vec!["A".to_string(), "B".to_string(), "C".to_string()],
         });
         set_global_retriever(Some(mock));
 

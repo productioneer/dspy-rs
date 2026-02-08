@@ -13,7 +13,7 @@ use tokio::process::Command;
 use tokio::sync::Semaphore;
 
 use crate::error::{DspyError, Result};
-use crate::lm::{LMConfig, LMResponse, LM, Message};
+use crate::lm::{LMConfig, LMResponse, Message, LM};
 
 /// Configuration for CodexLM.
 #[derive(Debug, Clone)]
@@ -91,11 +91,7 @@ impl CodexLM {
         })
     }
 
-    async fn invoke_once(
-        &self,
-        messages: &[Message],
-        _config: &LMConfig,
-    ) -> Result<String> {
+    async fn invoke_once(&self, messages: &[Message], _config: &LMConfig) -> Result<String> {
         let (system_prompt, formatted_prompt) =
             format_messages(messages, self.cli_config.system_prompt.as_deref());
 
@@ -123,7 +119,10 @@ impl CodexLM {
         let mut last_err: Option<DspyError> = None;
 
         for attempt in 0..=self.cli_config.retries {
-            let _permit = self.semaphore.acquire().await
+            let _permit = self
+                .semaphore
+                .acquire()
+                .await
                 .map_err(|e| DspyError::Other(format!("Semaphore error: {e}")))?;
 
             let result = tokio::time::timeout(
@@ -177,11 +176,7 @@ impl CodexLM {
 
 #[async_trait]
 impl LM for CodexLM {
-    async fn call(
-        &self,
-        messages: &[Message],
-        config: &LMConfig,
-    ) -> Result<Vec<LMResponse>> {
+    async fn call(&self, messages: &[Message], config: &LMConfig) -> Result<Vec<LMResponse>> {
         let n = config.n.unwrap_or(1) as usize;
 
         // Temperature warning

@@ -12,7 +12,7 @@ use tokio::process::Command;
 use tokio::sync::Semaphore;
 
 use crate::error::{DspyError, Result};
-use crate::lm::{LMConfig, LMResponse, LM, Message};
+use crate::lm::{LMConfig, LMResponse, Message, LM};
 
 /// Configuration for ClaudeLM.
 #[derive(Debug, Clone)]
@@ -67,7 +67,11 @@ impl ClaudeLM {
             n: None,
         };
         let semaphore = Arc::new(Semaphore::new(config.max_concurrent));
-        Self { lm_config, cli_config: config, semaphore }
+        Self {
+            lm_config,
+            cli_config: config,
+            semaphore,
+        }
     }
 
     /// Create a ClaudeLM with default configuration.
@@ -78,11 +82,7 @@ impl ClaudeLM {
         })
     }
 
-    async fn invoke_once(
-        &self,
-        messages: &[Message],
-        config: &LMConfig,
-    ) -> Result<String> {
+    async fn invoke_once(&self, messages: &[Message], config: &LMConfig) -> Result<String> {
         let (system_prompt, formatted_prompt) =
             format_messages(messages, self.cli_config.system_prompt.as_deref());
 
@@ -118,7 +118,10 @@ impl ClaudeLM {
         let mut last_err: Option<DspyError> = None;
 
         for attempt in 0..=self.cli_config.retries {
-            let _permit = self.semaphore.acquire().await
+            let _permit = self
+                .semaphore
+                .acquire()
+                .await
                 .map_err(|e| DspyError::Other(format!("Semaphore error: {e}")))?;
 
             let mut cmd = Command::new("claude");
@@ -130,16 +133,16 @@ impl ClaudeLM {
             if !extra_body.is_empty() {
                 cmd.env(
                     "CLAUDE_CODE_EXTRA_BODY",
-                    serde_json::to_string(&extra_body)
-                        .unwrap_or_default(),
+                    serde_json::to_string(&extra_body).unwrap_or_default(),
                 );
             }
 
             let result = tokio::time::timeout(
                 std::time::Duration::from_secs(self.cli_config.timeout_secs),
                 async {
-                    let mut child = cmd.spawn()
-                        .map_err(|e| DspyError::Other(format!("Failed to spawn claude CLI: {e}")))?;
+                    let mut child = cmd.spawn().map_err(|e| {
+                        DspyError::Other(format!("Failed to spawn claude CLI: {e}"))
+                    })?;
 
                     if let Some(mut stdin) = child.stdin.take() {
                         use tokio::io::AsyncWriteExt;
@@ -147,7 +150,9 @@ impl ClaudeLM {
                         drop(stdin);
                     }
 
-                    let output = child.wait_with_output().await
+                    let output = child
+                        .wait_with_output()
+                        .await
                         .map_err(|e| DspyError::Other(format!("Claude CLI error: {e}")))?;
 
                     Ok::<_, DspyError>(output)
@@ -190,11 +195,7 @@ impl ClaudeLM {
 
 #[async_trait]
 impl LM for ClaudeLM {
-    async fn call(
-        &self,
-        messages: &[Message],
-        config: &LMConfig,
-    ) -> Result<Vec<LMResponse>> {
+    async fn call(&self, messages: &[Message], config: &LMConfig) -> Result<Vec<LMResponse>> {
         let n = config.n.unwrap_or(1) as usize;
         let mut results = Vec::with_capacity(n);
 
@@ -268,7 +269,9 @@ fn parse_claude_output(stdout: &str) -> Result<String> {
     // result field
     match data.get("result").and_then(|v| v.as_str()) {
         Some(r) if !r.is_empty() => Ok(r.to_string()),
-        _ => Err(DspyError::Other("Empty result in Claude CLI response".into())),
+        _ => Err(DspyError::Other(
+            "Empty result in Claude CLI response".into(),
+        )),
     }
 }
 

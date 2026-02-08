@@ -4,9 +4,7 @@
 //! in a program by using an LLM to analyze the program structure, data, and demo
 //! examples, then propose improved instructions.
 
-use dspy_core::{
-    Example, LM, Module, Predict, Signature, SignatureBuilder,
-};
+use dspy_core::{Example, Module, Predict, Signature, SignatureBuilder, LM};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
@@ -71,11 +69,7 @@ pub struct GroundedProposer {
 }
 
 impl GroundedProposer {
-    pub fn new(
-        prompt_model: Arc<dyn LM>,
-        config: ProposerConfig,
-        seed: u64,
-    ) -> Self {
+    pub fn new(prompt_model: Arc<dyn LM>, config: ProposerConfig, seed: u64) -> Self {
         Self {
             config,
             prompt_model,
@@ -130,11 +124,7 @@ impl GroundedProposer {
         let mut lines = Vec::new();
         for (name, pred) in &predictors {
             let sig = &pred.signature;
-            lines.push(format!(
-                "Module '{}': {}",
-                name,
-                sig.to_shorthand()
-            ));
+            lines.push(format!("Module '{}': {}", name, sig.to_shorthand()));
             if !sig.instructions().is_empty() {
                 lines.push(format!("  Current instruction: {}", sig.instructions()));
             }
@@ -323,12 +313,10 @@ impl GroundedProposer {
         input = input.with_inputs(&key_refs);
 
         match generator.call(&input).await {
-            Ok(prediction) => {
-                prediction
-                    .get_str("proposed_instruction")
-                    .unwrap_or(basic_instruction)
-                    .to_string()
-            }
+            Ok(prediction) => prediction
+                .get_str("proposed_instruction")
+                .unwrap_or(basic_instruction)
+                .to_string(),
             Err(_) => {
                 // Fallback: generate a heuristic instruction
                 generate_heuristic_instruction(basic_instruction, pred_signature)
@@ -343,20 +331,25 @@ fn build_instruction_generation_signature(
     program_aware: bool,
     use_tip: bool,
 ) -> Signature {
-    let mut builder = SignatureBuilder::new()
-        .instructions(
-            "Use the information below to learn about a task that we are trying to solve \
+    let mut builder = SignatureBuilder::new().instructions(
+        "Use the information below to learn about a task that we are trying to solve \
              using calls to an LM, then generate a new instruction that will be used to prompt \
-             a Language Model to better solve the task."
-        );
+             a Language Model to better solve the task.",
+    );
 
     if use_dataset_summary {
         builder = builder.input_with_desc("dataset_description", "A description of the dataset");
     }
     if program_aware {
         builder = builder
-            .input_with_desc("program_code", "Language model program designed to solve a particular task")
-            .input_with_desc("program_description", "Summary of the task the program is designed to solve")
+            .input_with_desc(
+                "program_code",
+                "Language model program designed to solve a particular task",
+            )
+            .input_with_desc(
+                "program_description",
+                "Summary of the task the program is designed to solve",
+            )
             .input_with_desc("module", "The module to create an instruction for")
             .input_with_desc("module_description", "Description of the module");
     }
@@ -436,9 +429,15 @@ mod tests {
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "mock-proposer" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock-proposer"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     /// Simple test module with one predictor
@@ -474,11 +473,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_propose_basic() {
-        let sig = Signature::from_string("question -> answer").unwrap()
+        let sig = Signature::from_string("question -> answer")
+            .unwrap()
             .with_instructions("Answer the question");
         let program = SimpleModule::new(sig);
         let prompt_model: Arc<dyn LM> = Arc::new(MockProposerLM::new(
-            "You are an expert. Given the question, provide a detailed and accurate answer."
+            "You are an expert. Given the question, provide a detailed and accurate answer.",
         ));
 
         let mut proposer = GroundedProposer::new(
@@ -492,12 +492,10 @@ mod tests {
             42,
         );
 
-        let trainset = vec![
-            Example::new()
-                .field("question", "What is 2+2?")
-                .field("answer", "4")
-                .with_inputs(&["question"]),
-        ];
+        let trainset = vec![Example::new()
+            .field("question", "What is 2+2?")
+            .field("answer", "4")
+            .with_inputs(&["question"])];
 
         let result = proposer
             .propose_instructions_for_program(&program, &trainset, None, 2)
@@ -528,21 +526,23 @@ mod tests {
             42,
         );
 
-        let trainset = vec![
-            Example::new()
-                .field("question", "Q1")
-                .field("answer", "A1")
-                .with_inputs(&["question"]),
-        ];
+        let trainset = vec![Example::new()
+            .field("question", "Q1")
+            .field("answer", "A1")
+            .with_inputs(&["question"])];
 
         // Demo candidates: 1 predictor, 3 demo sets, 1 demo each
-        let demo_candidates = vec![
-            vec![
-                vec![Example::new().field("question", "D1").field("answer", "DA1")],
-                vec![Example::new().field("question", "D2").field("answer", "DA2")],
-                vec![Example::new().field("question", "D3").field("answer", "DA3")],
-            ],
-        ];
+        let demo_candidates = vec![vec![
+            vec![Example::new()
+                .field("question", "D1")
+                .field("answer", "DA1")],
+            vec![Example::new()
+                .field("question", "D2")
+                .field("answer", "DA2")],
+            vec![Example::new()
+                .field("question", "D3")
+                .field("answer", "DA3")],
+        ]];
 
         let result = proposer
             .propose_instructions_for_program(&program, &trainset, Some(&demo_candidates), 3)

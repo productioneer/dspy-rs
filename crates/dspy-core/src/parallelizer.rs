@@ -61,11 +61,7 @@ impl ParallelExecutor {
     /// Returns a Vec of Options where None represents failed/cancelled items.
     /// After the main batch, timed-out items are resubmitted sequentially
     /// if their count is within the straggler_limit.
-    pub async fn execute<T, R, F, Fut>(
-        &self,
-        data: Vec<T>,
-        func: F,
-    ) -> Result<Vec<Option<R>>>
+    pub async fn execute<T, R, F, Fut>(&self, data: Vec<T>, func: F) -> Result<Vec<Option<R>>>
     where
         T: Send + Sync + Clone + 'static,
         R: Send + 'static,
@@ -110,11 +106,7 @@ impl ParallelExecutor {
                 }
 
                 let result = if timeout > 0 {
-                    tokio::time::timeout(
-                        std::time::Duration::from_secs(timeout),
-                        func(item),
-                    )
-                    .await
+                    tokio::time::timeout(std::time::Duration::from_secs(timeout), func(item)).await
                 } else {
                     Ok(func(item).await)
                 };

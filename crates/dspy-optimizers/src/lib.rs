@@ -16,35 +16,38 @@
 //! - AvatarOptimizer: iterative instruction refinement for tool-using agents
 //! - BootstrapFewShotWithOptuna: demo selection using TPE Bayesian optimization
 
-pub mod labeled_few_shot;
+pub mod avatar_optimizer;
+pub mod better_together;
 pub mod bootstrap_few_shot;
-pub mod random_search;
+pub mod bootstrap_fewshot_optuna;
+pub mod bootstrap_finetune;
 pub mod copro;
 pub mod ensemble;
-pub mod mipro_v2;
-pub mod simba;
-pub mod knn_fewshot;
-pub mod infer_rules;
 pub mod gepa;
-pub mod bootstrap_finetune;
 pub mod grpo;
-pub mod better_together;
-pub mod avatar_optimizer;
-pub mod bootstrap_fewshot_optuna;
+pub mod infer_rules;
+pub mod knn_fewshot;
+pub mod labeled_few_shot;
+pub mod mipro_v2;
+pub mod random_search;
+pub mod simba;
 
 // Re-exports
-pub use labeled_few_shot::LabeledFewShot;
-pub use bootstrap_few_shot::{BootstrapFewShot, BootstrapFewShotConfig};
-pub use random_search::{BootstrapFewShotWithRandomSearch, RandomSearchConfig};
-pub use copro::{COPRO, COPROConfig};
-pub use ensemble::{EnsembleModule, EnsembleConfig, ReduceFn};
-pub use mipro_v2::{MIPROv2, MIPROv2Config, MIPROv2CompileOptions, AutoMode, MIPROv2Result};
-pub use simba::{SIMBA, SIMBAConfig, SIMBAResult};
-pub use knn_fewshot::{KNNFewShot, KNNFewShotConfig, KNNCompiledProgram};
-pub use infer_rules::{InferRules, InferRulesConfig};
-pub use gepa::{GEPA, GEPAConfig, GEPABudget, GEPAResult, GEPAFeedbackMetric, GEPAMetricResult, ScoreWithFeedback, CandidateSelection, ComponentSelection, ProposalFn, ReflectiveExample};
-pub use bootstrap_finetune::{BootstrapFinetune, BootstrapFinetuneConfig};
-pub use grpo::{GRPO, GRPOConfig};
+pub use avatar_optimizer::{AvatarOptimizer, AvatarOptimizerConfig, EvalResult, OptimizeDirection};
 pub use better_together::{BetterTogether, BetterTogetherConfig};
-pub use avatar_optimizer::{AvatarOptimizer, AvatarOptimizerConfig, OptimizeDirection, EvalResult};
+pub use bootstrap_few_shot::{BootstrapFewShot, BootstrapFewShotConfig};
 pub use bootstrap_fewshot_optuna::{BootstrapFewShotWithOptuna, BootstrapFewShotWithOptunaConfig};
+pub use bootstrap_finetune::{BootstrapFinetune, BootstrapFinetuneConfig};
+pub use copro::{COPROConfig, COPRO};
+pub use ensemble::{EnsembleConfig, EnsembleModule, ReduceFn};
+pub use gepa::{
+    CandidateSelection, ComponentSelection, GEPABudget, GEPAConfig, GEPAFeedbackMetric,
+    GEPAMetricResult, GEPAResult, ProposalFn, ReflectiveExample, ScoreWithFeedback, GEPA,
+};
+pub use grpo::{GRPOConfig, GRPO};
+pub use infer_rules::{InferRules, InferRulesConfig};
+pub use knn_fewshot::{KNNCompiledProgram, KNNFewShot, KNNFewShotConfig};
+pub use labeled_few_shot::LabeledFewShot;
+pub use mipro_v2::{AutoMode, MIPROv2, MIPROv2CompileOptions, MIPROv2Config, MIPROv2Result};
+pub use random_search::{BootstrapFewShotWithRandomSearch, RandomSearchConfig};
+pub use simba::{SIMBAConfig, SIMBAResult, SIMBA};

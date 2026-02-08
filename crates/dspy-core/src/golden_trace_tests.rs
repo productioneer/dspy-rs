@@ -43,25 +43,15 @@ mod tests {
 
     #[async_trait]
     impl LM for DeterministicLM {
-        async fn call(
-            &self,
-            messages: &[Message],
-            _config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
+        async fn call(&self, messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
             let mut idx = self.call_index.lock().unwrap();
             if *idx >= self.responses.len() {
-                panic!(
-                    "DeterministicLM ran out of responses (used {})",
-                    *idx
-                );
+                panic!("DeterministicLM ran out of responses (used {})", *idx);
             }
             let response = self.responses[*idx].clone();
             *idx += 1;
 
-            self.history
-                .lock()
-                .unwrap()
-                .push(messages.to_vec());
+            self.history.lock().unwrap().push(messages.to_vec());
 
             Ok(vec![LMResponse {
                 text: response,
@@ -218,7 +208,10 @@ mod tests {
         let inputs = Example::new().field("question", "What is 6*7?");
         let result = predict.forward(&inputs).await.unwrap();
 
-        assert_eq!(result.get_str("reasoning"), Some("Let me think about this."));
+        assert_eq!(
+            result.get_str("reasoning"),
+            Some("Let me think about this.")
+        );
         assert_eq!(result.get_str("answer"), Some("42"));
     }
 

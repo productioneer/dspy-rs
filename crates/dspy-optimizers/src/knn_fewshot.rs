@@ -7,7 +7,7 @@
 //! Python equivalent: dspy/teleprompt/knn_fewshot.py
 
 use crate::bootstrap_few_shot::{BootstrapFewShot, BootstrapFewShotConfig};
-use dspy_core::{Embedder, Example, KNN, Metric, Module, Predict, Prediction};
+use dspy_core::{Embedder, Example, Metric, Module, Predict, Prediction, KNN};
 use std::sync::Arc;
 
 /// Configuration for KNNFewShot.
@@ -94,9 +94,7 @@ impl KNNCompiledProgram {
         let input_example = input.inputs();
         let fields: Vec<(String, String)> = input_example
             .keys()
-            .filter_map(|k| {
-                input_example.get_str(k).map(|v| (k.clone(), v.to_string()))
-            })
+            .filter_map(|k| input_example.get_str(k).map(|v| (k.clone(), v.to_string())))
             .collect();
 
         let field_refs: Vec<(&str, &str)> = fields
@@ -159,8 +157,8 @@ impl Module for KNNCompiledProgram {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dspy_core::*;
     use async_trait::async_trait;
+    use dspy_core::*;
     use std::sync::Arc;
 
     struct MockKNNLM {
@@ -169,18 +167,19 @@ mod tests {
 
     impl MockKNNLM {
         fn new() -> Self {
-            Self { config: LMConfig::new("mock-knn") }
+            Self {
+                config: LMConfig::new("mock-knn"),
+            }
         }
     }
 
     #[async_trait]
     impl LM for MockKNNLM {
-        async fn call(
-            &self,
-            messages: &[Message],
-            _config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
-            let last = messages.last().map(|m| m.content.clone()).unwrap_or_default();
+        async fn call(&self, messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
+            let last = messages
+                .last()
+                .map(|m| m.content.clone())
+                .unwrap_or_default();
             let answer = if last.contains("Paris") {
                 "Paris is the capital of France"
             } else if last.contains("Berlin") {
@@ -194,9 +193,15 @@ mod tests {
             }])
         }
 
-        fn model(&self) -> &str { "mock-knn" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock-knn"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     /// Simple mock embedder: sum of char values as first dim, len as second dim.
@@ -242,7 +247,9 @@ mod tests {
         }
 
         fn deep_copy(&self) -> Box<dyn Module> {
-            Box::new(SimpleQA { predict: self.predict.clone() })
+            Box::new(SimpleQA {
+                predict: self.predict.clone(),
+            })
         }
     }
 
@@ -286,12 +293,10 @@ mod tests {
         let lm: Arc<dyn LM> = Arc::new(MockKNNLM::new());
         let student = SimpleQA::new(lm);
 
-        let trainset = vec![
-            Example::new()
-                .field("q", "hello")
-                .field("a", "world")
-                .with_inputs(&["q"]),
-        ];
+        let trainset = vec![Example::new()
+            .field("q", "hello")
+            .field("a", "world")
+            .with_inputs(&["q"])];
 
         let metric: Metric = Arc::new(|_, _| 1.0);
         let config = KNNFewShotConfig::new(1);

@@ -7,9 +7,7 @@
 
 use crate::error::{DspyError, Result};
 use crate::example::Example;
-use crate::interpreter::{
-    CodeInterpreter, ExecutionResult, FinalOutput, InterpreterTool,
-};
+use crate::interpreter::{CodeInterpreter, ExecutionResult, FinalOutput, InterpreterTool};
 use crate::module_trait::Module;
 use crate::predict::Predict;
 use crate::prediction::Prediction;
@@ -321,7 +319,14 @@ impl RLM {
             }
         };
 
-        self.process_execution_result(&action, result, history, output_field_names, &code, &reasoning)
+        self.process_execution_result(
+            &action,
+            result,
+            history,
+            output_field_names,
+            &code,
+            &reasoning,
+        )
     }
 
     fn process_execution_result(
@@ -351,8 +356,7 @@ impl RLM {
                 )))
             }
             ExecutionResult::Final(final_output) => {
-                let (parsed, error) =
-                    process_final_output(&final_output, output_field_names);
+                let (parsed, error) = process_final_output(&final_output, output_field_names);
 
                 if let Some(err) = error {
                     return Ok(IterationResult::Continue(
@@ -363,7 +367,10 @@ impl RLM {
                 let final_history = history.append(
                     reasoning,
                     code,
-                    &format!("FINAL: {}", serde_json::to_string(&parsed).unwrap_or_default()),
+                    &format!(
+                        "FINAL: {}",
+                        serde_json::to_string(&parsed).unwrap_or_default()
+                    ),
                 );
 
                 let parsed_map = parsed.unwrap_or_default();
@@ -371,7 +378,10 @@ impl RLM {
                 for (k, v) in parsed_map {
                     fields.insert(k, crate::value::Value::from(v));
                 }
-                fields.insert("trajectory".to_string(), crate::value::Value::from(final_history.to_json()));
+                fields.insert(
+                    "trajectory".to_string(),
+                    crate::value::Value::from(final_history.to_json()),
+                );
                 fields.insert(
                     "final_reasoning".to_string(),
                     crate::value::Value::String(reasoning.to_string()),
@@ -409,15 +419,16 @@ impl RLM {
                 outputs.insert(name.clone(), val.clone());
             }
         }
-        outputs.insert("trajectory".to_string(), crate::value::Value::from(history.to_json()));
+        outputs.insert(
+            "trajectory".to_string(),
+            crate::value::Value::from(history.to_json()),
+        );
         outputs.insert(
             "final_reasoning".to_string(),
             crate::value::Value::String("Extract forced final output".to_string()),
         );
 
-        Ok(Prediction::from_example(
-            Example::from_map(outputs),
-        ))
+        Ok(Prediction::from_example(Example::from_map(outputs)))
     }
 }
 
@@ -456,9 +467,8 @@ impl Module for RLM {
             }
             (ext.clone(), false)
         } else {
-            let mut interp: Box<dyn CodeInterpreter> = Box::new(
-                crate::mock_interpreter::MockInterpreter::new(vec![]),
-            );
+            let mut interp: Box<dyn CodeInterpreter> =
+                Box::new(crate::mock_interpreter::MockInterpreter::new(vec![]));
             let tools = interp.tools_mut();
             for (name, tool) in execution_tools {
                 tools.insert(name, tool);
@@ -543,16 +553,15 @@ fn strip_code_fences(code: &str) -> String {
     let code = code.trim();
     let fence_re = regex::Regex::new(r"^```(?:python|py)?\s*\n(.*)\n```\s*$").unwrap();
     if let Some(caps) = fence_re.captures(code) {
-        caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_else(|| code.to_string())
+        caps.get(1)
+            .map(|m| m.as_str().to_string())
+            .unwrap_or_else(|| code.to_string())
     } else {
         code.to_string()
     }
 }
 
-fn build_signatures(
-    signature: &Signature,
-    max_llm_calls: usize,
-) -> (Signature, Signature) {
+fn build_signatures(signature: &Signature, max_llm_calls: usize) -> (Signature, Signature) {
     let inputs_str = signature
         .input_fields()
         .map(|(n, _)| format!("`{}`", n))
@@ -587,11 +596,17 @@ fn build_signatures(
 
     // Action signature
     let action_fields = vec![
-        input_field("variables_info").with_desc("Metadata about the variables available in the REPL"),
+        input_field("variables_info")
+            .with_desc("Metadata about the variables available in the REPL"),
         input_field("repl_history").with_desc("Previous REPL code executions and their outputs"),
-        input_field("iteration").with_desc("Current iteration number (1-indexed) out of max_iterations"),
-        output_field("reasoning").with_desc("Think step-by-step: what do you know? What remains? Plan your next action."),
-        output_field("code").with_desc("Python code to execute. Use markdown code block format: ```python\n<code>\n```"),
+        input_field("iteration")
+            .with_desc("Current iteration number (1-indexed) out of max_iterations"),
+        output_field("reasoning").with_desc(
+            "Think step-by-step: what do you know? What remains? Plan your next action.",
+        ),
+        output_field("code").with_desc(
+            "Python code to execute. Use markdown code block format: ```python\n<code>\n```",
+        ),
     ];
     let action_sig = Signature::new(action_fields, &instructions);
 
@@ -606,7 +621,8 @@ fn build_signatures(
     );
 
     let mut extract_fields = vec![
-        input_field("variables_info").with_desc("Metadata about the variables available in the REPL"),
+        input_field("variables_info")
+            .with_desc("Metadata about the variables available in the REPL"),
         input_field("repl_history").with_desc("Your REPL interactions so far"),
     ];
     for (_, field) in signature.output_fields() {
@@ -696,11 +712,7 @@ mod tests {
 
     #[async_trait]
     impl LM for MockLM {
-        async fn call(
-            &self,
-            _messages: &[Message],
-            _config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
+        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
             let mut idx = self.call_index.lock().unwrap();
             let response = self.responses[*idx % self.responses.len()].clone();
             *idx += 1;
@@ -709,9 +721,15 @@ mod tests {
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "mock" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     #[test]
@@ -753,9 +771,9 @@ mod tests {
     #[tokio::test]
     async fn test_forward_with_submit() {
         settings::reset_settings();
-        let mock_interp = MockInterpreter::new(vec![
-            MockResponse::final_output(serde_json::json!({"answer": "42"})),
-        ]);
+        let mock_interp = MockInterpreter::new(vec![MockResponse::final_output(
+            serde_json::json!({"answer": "42"}),
+        )]);
 
         let mock_lm = Arc::new(MockLM::new(vec![
             "[[ ## reasoning ## ]]\nLet me compute this.\n\n[[ ## code ## ]]\n```python\nSUBMIT(answer=\"42\")\n```\n\n[[ ## completed ## ]]",
@@ -963,15 +981,9 @@ mod tests {
 
     #[test]
     fn test_strip_code_fences() {
-        assert_eq!(
-            strip_code_fences("```python\nprint(1)\n```"),
-            "print(1)"
-        );
+        assert_eq!(strip_code_fences("```python\nprint(1)\n```"), "print(1)");
         assert_eq!(strip_code_fences("print(1)"), "print(1)");
-        assert_eq!(
-            strip_code_fences("```py\nx = 1\n```"),
-            "x = 1"
-        );
+        assert_eq!(strip_code_fences("```py\nx = 1\n```"), "x = 1");
     }
 
     #[test]

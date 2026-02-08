@@ -42,15 +42,14 @@ impl CodeAct {
         for (_, field) in signature.input_fields() {
             fields.push(field.clone());
         }
-        fields.push(
-            input_field("trajectory").with_desc("Previous code execution trajectory"),
-        );
+        fields.push(input_field("trajectory").with_desc("Previous code execution trajectory"));
         fields.push(output_field("generated_code").with_desc(
             "Python code that when executed, produces output relevant to answering the question",
         ));
-        fields.push(output_field("finished").with_desc(
-            "a boolean flag to determine if the process is done",
-        ));
+        fields.push(
+            output_field("finished")
+                .with_desc("a boolean flag to determine if the process is done"),
+        );
 
         let code_act_sig = Signature::new(fields, &instructions);
         let code_act_predict = Predict::new(code_act_sig);
@@ -60,17 +59,13 @@ impl CodeAct {
         for (_, field) in signature.input_fields() {
             extract_fields.push(field.clone());
         }
-        extract_fields.push(
-            input_field("trajectory").with_desc("Previous code execution trajectory"),
-        );
+        extract_fields
+            .push(input_field("trajectory").with_desc("Previous code execution trajectory"));
         for (_, field) in signature.output_fields() {
             extract_fields.push(field.clone());
         }
 
-        let extract_sig = Signature::new(
-            extract_fields,
-            signature.instructions(),
-        );
+        let extract_sig = Signature::new(extract_fields, signature.instructions());
         let extractor = ChainOfThought::new(extract_sig);
 
         Self {
@@ -113,12 +108,12 @@ impl CodeAct {
     }
 
     /// Execute code in the interpreter.
-    async fn execute_code(
-        &self,
-        code: &str,
-    ) -> (Option<String>, Option<String>) {
+    async fn execute_code(&self, code: &str) -> (Option<String>, Option<String>) {
         if code.trim().is_empty() {
-            return (None, Some("Error: Empty code before execution.".to_string()));
+            return (
+                None,
+                Some("Error: Empty code before execution.".to_string()),
+            );
         }
 
         let mut interp = self.interpreter.lock().await;
@@ -208,10 +203,7 @@ impl Module for CodeAct {
             let (output, exec_error) = self.execute_code(&code).await;
 
             if exec_error.is_none() {
-                trajectory.insert(
-                    format!("code_output_{}", idx),
-                    output.unwrap_or_default(),
-                );
+                trajectory.insert(format!("code_output_{}", idx), output.unwrap_or_default());
             } else {
                 trajectory.insert(
                     format!("observation_{}", idx),
@@ -241,8 +233,7 @@ impl Module for CodeAct {
 
         // Extract final answer
         let mut extract_args = input_kwargs.clone();
-        extract_args =
-            extract_args.field("trajectory", Self::format_trajectory(&trajectory));
+        extract_args = extract_args.field("trajectory", Self::format_trajectory(&trajectory));
 
         let extract_result = self.extractor.call(&extract_args).await?;
 
@@ -263,9 +254,7 @@ impl Module for CodeAct {
             crate::value::Value::from(trajectory_json),
         );
 
-        Ok(Prediction::from_example(
-            Example::from_map(final_fields),
-        ))
+        Ok(Prediction::from_example(Example::from_map(final_fields)))
     }
 
     fn named_predictors(&self) -> Vec<(&str, &Predict)> {
@@ -367,11 +356,7 @@ mod tests {
 
     #[async_trait]
     impl LM for MockLM {
-        async fn call(
-            &self,
-            _messages: &[Message],
-            _config: &LMConfig,
-        ) -> Result<Vec<LMResponse>> {
+        async fn call(&self, _messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
             let mut idx = self.call_index.lock().unwrap();
             let response = self.responses[*idx % self.responses.len()].clone();
             *idx += 1;
@@ -380,9 +365,15 @@ mod tests {
                 usage: None,
             }])
         }
-        fn model(&self) -> &str { "mock" }
-        fn config(&self) -> &LMConfig { &self.config }
-        fn dump_state(&self) -> serde_json::Value { serde_json::json!({}) }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        fn config(&self) -> &LMConfig {
+            &self.config
+        }
+        fn dump_state(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
     }
 
     #[test]
@@ -406,9 +397,7 @@ mod tests {
     #[tokio::test]
     async fn test_forward_runs_and_extracts() {
         settings::reset_settings();
-        let mock_interp = MockInterpreter::new(vec![
-            MockResponse::output("120"),
-        ]);
+        let mock_interp = MockInterpreter::new(vec![MockResponse::output("120")]);
 
         let mock_lm = Arc::new(MockLM::new(vec![
             // codeact predict (Predict with generated_code + finished)
@@ -476,10 +465,8 @@ mod tests {
     #[tokio::test]
     async fn test_forward_respects_max_iters() {
         settings::reset_settings();
-        let mock_interp = MockInterpreter::new(vec![
-            MockResponse::output("a"),
-            MockResponse::output("b"),
-        ]);
+        let mock_interp =
+            MockInterpreter::new(vec![MockResponse::output("a"), MockResponse::output("b")]);
 
         let mock_lm = Arc::new(MockLM::new(vec![
             "[[ ## generated_code ## ]]\nprint('a')\n\n[[ ## finished ## ]]\nfalse\n\n[[ ## completed ## ]]",

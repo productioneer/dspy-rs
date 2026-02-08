@@ -204,10 +204,8 @@ impl ChatAdapter {
         signature: &Signature,
     ) -> Result<HashMap<String, Value>> {
         let mut result = HashMap::new();
-        let output_field_names: Vec<String> = signature
-            .output_fields()
-            .map(|(k, _)| k.clone())
-            .collect();
+        let output_field_names: Vec<String> =
+            signature.output_fields().map(|(k, _)| k.clone()).collect();
 
         for name in &output_field_names {
             let marker = format!("[[ ## {} ## ]]", name);
@@ -283,12 +281,9 @@ impl Adapter for ChatAdapter {
             "messages": messages.len(),
             "model": lm.model(),
         });
-        let responses = with_callbacks_async(
-            ComponentType::Lm,
-            lm.model(),
-            &lm_inputs,
-            || lm.call(&messages, config),
-        )
+        let responses = with_callbacks_async(ComponentType::Lm, lm.model(), &lm_inputs, || {
+            lm.call(&messages, config)
+        })
         .await?;
 
         let mut results = Vec::new();
@@ -516,11 +511,17 @@ mod tests {
         assert_eq!(messages[1].role, "user");
         assert_eq!(messages[1].content, "[[ ## question ## ]]\nWhat is 1+1?");
         assert_eq!(messages[2].role, "assistant");
-        assert_eq!(messages[2].content, "[[ ## answer ## ]]\n2\n\n[[ ## completed ## ]]\n");
+        assert_eq!(
+            messages[2].content,
+            "[[ ## answer ## ]]\n2\n\n[[ ## completed ## ]]\n"
+        );
         assert_eq!(messages[3].role, "user");
         assert_eq!(messages[3].content, "[[ ## question ## ]]\nWhat is 3+3?");
         assert_eq!(messages[4].role, "assistant");
-        assert_eq!(messages[4].content, "[[ ## answer ## ]]\n6\n\n[[ ## completed ## ]]\n");
+        assert_eq!(
+            messages[4].content,
+            "[[ ## answer ## ]]\n6\n\n[[ ## completed ## ]]\n"
+        );
         assert_eq!(messages[5].role, "user");
     }
 
@@ -537,7 +538,8 @@ mod tests {
     fn test_cross_validation_parse_multi_field() {
         let adapter = ChatAdapter::new();
         let sig = Signature::from_string("question -> reasoning, answer").unwrap();
-        let response = "[[ ## reasoning ## ]]\n2+2 equals 4\n\n[[ ## answer ## ]]\n4\n\n[[ ## completed ## ]]";
+        let response =
+            "[[ ## reasoning ## ]]\n2+2 equals 4\n\n[[ ## answer ## ]]\n4\n\n[[ ## completed ## ]]";
         let parsed = adapter.parse_output(response, &sig).unwrap();
         assert_eq!(parsed["reasoning"].as_str(), Some("2+2 equals 4"));
         assert_eq!(parsed["answer"].as_str(), Some("4"));

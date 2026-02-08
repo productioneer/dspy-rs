@@ -134,8 +134,9 @@ pub async fn bootstrap_trace_data(
                 let t = &predictor_traces[trace_cursor];
                 trace_entries.push(TraceEntry {
                     predictor: Predict::new(
-                        crate::signature::Signature::from_string("q -> a")
-                            .unwrap_or_else(|_| crate::signature::Signature::from_string("q -> a").unwrap()),
+                        crate::signature::Signature::from_string("q -> a").unwrap_or_else(|_| {
+                            crate::signature::Signature::from_string("q -> a").unwrap()
+                        }),
                     ),
                     inputs: t.inputs.clone(),
                     outputs: t.outputs.clone(),
@@ -213,8 +214,7 @@ mod tests {
 
     impl SimpleQA {
         fn new() -> Self {
-            let mut predict =
-                Predict::new(Signature::from_string("question -> answer").unwrap());
+            let mut predict = Predict::new(Signature::from_string("question -> answer").unwrap());
             predict.set_lm(Arc::new(MockLM::new()));
             Self { predict }
         }
@@ -264,13 +264,9 @@ mod tests {
         let program = SimpleQA::new();
         let dataset = make_dataset(2);
 
-        let traces = bootstrap_trace_data(
-            &program,
-            &dataset,
-            &BootstrapTraceOptions::default(),
-        )
-        .await
-        .unwrap();
+        let traces = bootstrap_trace_data(&program, &dataset, &BootstrapTraceOptions::default())
+            .await
+            .unwrap();
 
         assert_eq!(traces.len(), 2);
         for td in &traces {
@@ -282,12 +278,10 @@ mod tests {
     async fn test_bootstrap_trace_with_metric() {
         crate::settings::reset_settings();
         let program = SimpleQA::new();
-        let dataset = vec![
-            Example::new()
-                .field("question", "Q1")
-                .field("answer", "42")
-                .with_inputs(&["question"]),
-        ];
+        let dataset = vec![Example::new()
+            .field("question", "Q1")
+            .field("answer", "42")
+            .with_inputs(&["question"])];
 
         let metric: Metric = Arc::new(|example, prediction| {
             let expected = example.get_str("answer").unwrap_or("");
@@ -318,13 +312,9 @@ mod tests {
     async fn test_bootstrap_trace_empty_dataset() {
         crate::settings::reset_settings();
         let program = SimpleQA::new();
-        let traces = bootstrap_trace_data(
-            &program,
-            &[],
-            &BootstrapTraceOptions::default(),
-        )
-        .await
-        .unwrap();
+        let traces = bootstrap_trace_data(&program, &[], &BootstrapTraceOptions::default())
+            .await
+            .unwrap();
 
         assert!(traces.is_empty());
     }
@@ -335,13 +325,9 @@ mod tests {
         let program = SimpleQA::new();
         let dataset = make_dataset(3);
 
-        let traces = bootstrap_trace_data(
-            &program,
-            &dataset,
-            &BootstrapTraceOptions::default(),
-        )
-        .await
-        .unwrap();
+        let traces = bootstrap_trace_data(&program, &dataset, &BootstrapTraceOptions::default())
+            .await
+            .unwrap();
 
         assert_eq!(traces.len(), 3);
         for (i, td) in traces.iter().enumerate() {
