@@ -34,6 +34,9 @@ pub struct Settings {
     pub send_stream: Option<SendStreamFn>,
     /// Active stream listeners for the current context.
     pub stream_listeners: Option<Vec<Arc<Mutex<StreamListener>>>>,
+    /// The Predict module currently making a call. Used for stream chunk tagging.
+    /// Stored as a raw pointer-based ID since Predict types are heterogeneous.
+    pub caller_predict_id: Option<usize>,
 }
 
 /// Cache setting — either a specific cache instance or disabled.
@@ -63,6 +66,7 @@ impl Settings {
             max_history_size: 10000,
             send_stream: None,
             stream_listeners: None,
+            caller_predict_id: None,
         }
     }
 
