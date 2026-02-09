@@ -360,10 +360,7 @@ mod tests {
             let mut idx = self.call_index.lock().unwrap();
             let response = self.responses[*idx % self.responses.len()].clone();
             *idx += 1;
-            Ok(vec![LMResponse {
-                text: response,
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(response, None)])
         }
         fn model(&self) -> &str {
             "mock"

@@ -687,7 +687,7 @@ mod tests {
                 format!("[[ ## answer ## ]]\n{}", self.answer)
             };
 
-            Ok(vec![LMResponse { text, usage: None }])
+            Ok(vec![LMResponse::new(text, None)])
         }
         fn model(&self) -> &str {
             "mock"

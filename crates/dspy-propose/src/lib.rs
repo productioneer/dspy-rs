@@ -424,10 +424,7 @@ mod tests {
             _messages: &[Message],
             _config: &LMConfig,
         ) -> dspy_core::Result<Vec<LMResponse>> {
-            Ok(vec![LMResponse {
-                text: format!("[[ ## proposed_instruction ## ]]\n{}", self.response),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(format!("[[ ## proposed_instruction ## ]]\n{}", self.response), None)])
         }
         fn model(&self) -> &str {
             "mock-proposer"

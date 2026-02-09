@@ -51,7 +51,7 @@ pub mod xml_adapter;
 mod golden_trace_tests;
 
 // Re-exports
-pub use adapter::{Adapter, ChatAdapter};
+pub use adapter::{Adapter, ChatAdapter, NativeResponseType};
 pub use adapter_types::{
     split_message_content_for_custom_types, AdapterType, AdapterTypeOutput, Audio, Citation,
     Citations, Code as CodeType, ContentBlock, DSPyFile, Document, DocumentMediaType, History,

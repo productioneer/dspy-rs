@@ -176,10 +176,7 @@ mod tests {
                 .last()
                 .map(|m| m.content.clone())
                 .unwrap_or_default();
-            Ok(vec![LMResponse {
-                text: format!("[[ ## answer ## ]]\n{text}"),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(format!("[[ ## answer ## ]]\n{text}"), None)])
         }
         fn model(&self) -> &str {
             "echo"

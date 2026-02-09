@@ -53,10 +53,7 @@ mod tests {
 
             self.history.lock().unwrap().push(messages.to_vec());
 
-            Ok(vec![LMResponse {
-                text: response,
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(response, None)])
         }
 
         fn model(&self) -> &str {

@@ -34,6 +34,33 @@ impl LMConfig {
 pub struct LMResponse {
     pub text: String,
     pub usage: Option<Usage>,
+    /// Citations extracted from the LM response (for providers that support citations).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub citations: Option<Vec<serde_json::Value>>,
+}
+
+impl LMResponse {
+    /// Create a new LMResponse with text and optional usage.
+    pub fn new(text: impl Into<String>, usage: Option<Usage>) -> Self {
+        Self {
+            text: text.into(),
+            usage,
+            citations: None,
+        }
+    }
+
+    /// Create a new LMResponse with citations.
+    pub fn with_citations(
+        text: impl Into<String>,
+        usage: Option<Usage>,
+        citations: Vec<serde_json::Value>,
+    ) -> Self {
+        Self {
+            text: text.into(),
+            usage,
+            citations: Some(citations),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,6 +116,29 @@ pub trait LM: Send + Sync {
     fn model(&self) -> &str;
     fn config(&self) -> &LMConfig;
     fn dump_state(&self) -> serde_json::Value;
+
+    /// Whether this LM supports streaming responses.
+    /// Default: false. Override to true and implement call_streaming() for streaming.
+    fn supports_streaming(&self) -> bool {
+        false
+    }
+
+    /// Streaming LM call — providers override to support incremental chunk delivery.
+    ///
+    /// When implemented, this is called instead of call() when settings.send_stream
+    /// is active and supports_streaming() returns true. The provider should:
+    /// 1. Call the backend with streaming enabled
+    /// 2. For each chunk, send it through the settings send_stream callback
+    /// 3. Return the complete assembled response
+    ///
+    /// Default: falls back to call() (no streaming).
+    async fn call_streaming(
+        &self,
+        messages: &[Message],
+        config: &LMConfig,
+    ) -> crate::error::Result<Vec<LMResponse>> {
+        self.call(messages, config).await
+    }
 }
 
 // ============================================================
@@ -169,7 +219,9 @@ pub fn reset_global_cache() {
     });
 }
 
-fn get_effective_cache() -> Arc<Cache> {
+/// Get the effective cache instance (configured or default global).
+/// Used by both LM and Embedder caching.
+pub fn get_effective_cache() -> Arc<Cache> {
     CONFIGURED_CACHE.with(|c| {
         if let Some(ref cache) = *c.borrow() {
             return cache.clone();
@@ -238,8 +290,12 @@ pub async fn call_with_cache(
         }
     }
 
-    // Call LM
-    let responses = lm.call(messages, config).await?;
+    // Call LM — use streaming impl if available and streaming is active
+    let responses = if settings.send_stream.is_some() && lm.supports_streaming() {
+        lm.call_streaming(messages, config).await?
+    } else {
+        lm.call(messages, config).await?
+    };
 
     // Store in cache
     if let (Some(ref cache), Some(ref request)) = (&cache_instance, &cache_request) {
@@ -350,6 +406,7 @@ mod tests {
         let lm = MockLM::new(vec![LMResponse {
             text: "hello".to_string(),
             usage: None,
+            citations: None,
         }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
@@ -376,14 +433,8 @@ mod tests {
         reset_global_cache();
 
         let lm = MockLM::new(vec![
-            LMResponse {
-                text: "first".to_string(),
-                usage: None,
-            },
-            LMResponse {
-                text: "second".to_string(),
-                usage: None,
-            },
+            LMResponse::new("first", None),
+            LMResponse::new("second", None),
         ]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
@@ -406,14 +457,8 @@ mod tests {
         reset_global_cache();
 
         let lm = MockLM::new(vec![
-            LMResponse {
-                text: "a".to_string(),
-                usage: None,
-            },
-            LMResponse {
-                text: "b".to_string(),
-                usage: None,
-            },
+            LMResponse::new("a", None),
+            LMResponse::new("b", None),
         ]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
@@ -440,6 +485,7 @@ mod tests {
         let lm = MockLM::new(vec![LMResponse {
             text: "hello".to_string(),
             usage: None,
+            citations: None,
         }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
@@ -463,6 +509,7 @@ mod tests {
         let lm = MockLM::new(vec![LMResponse {
             text: "hello".to_string(),
             usage: None,
+            citations: None,
         }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
@@ -489,6 +536,7 @@ mod tests {
         let lm = MockLM::new(vec![LMResponse {
             text: "hello".to_string(),
             usage: None,
+            citations: None,
         }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
@@ -513,6 +561,7 @@ mod tests {
                 prompt_tokens: 100,
                 completion_tokens: 50,
             }),
+            citations: None,
         }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
@@ -542,6 +591,7 @@ mod tests {
                 prompt_tokens: 100,
                 completion_tokens: 50,
             }),
+            citations: None,
         }]);
         let messages = vec![Message::user("hi")];
         let config = LMConfig::new("test-model");
@@ -572,6 +622,7 @@ mod tests {
                 response: vec![LMResponse {
                     text: format!("resp{}", i),
                     usage: None,
+                    citations: None,
                 }],
                 model: "m".to_string(),
                 cache_hit: false,

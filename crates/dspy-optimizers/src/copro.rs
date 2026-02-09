@@ -419,10 +419,7 @@ mod tests {
             _messages: &[Message],
             _config: &LMConfig,
         ) -> dspy_core::Result<Vec<LMResponse>> {
-            Ok(vec![LMResponse {
-                text: format!("[[ ## answer ## ]]\n{}", self.answer),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(format!("[[ ## answer ## ]]\n{}", self.answer), None)])
         }
         fn model(&self) -> &str {
             "fixed"
@@ -455,10 +452,7 @@ mod tests {
             _messages: &[Message],
             _config: &LMConfig,
         ) -> dspy_core::Result<Vec<LMResponse>> {
-            Ok(vec![LMResponse {
-                text: "Answer the question carefully and precisely.".to_string(),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new("Answer the question carefully and precisely.", None)])
         }
         fn model(&self) -> &str {
             "instruction-gen"

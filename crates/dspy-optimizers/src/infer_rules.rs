@@ -363,7 +363,7 @@ mod tests {
                 )
             };
 
-            Ok(vec![LMResponse { text, usage: None }])
+            Ok(vec![LMResponse::new(text, None)])
         }
 
         fn model(&self) -> &str {

@@ -407,10 +407,7 @@ mod tests {
         async fn call(&self, _messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
             let idx = self.call_idx.fetch_add(1, Ordering::SeqCst);
             let response = &self.responses[idx % self.responses.len()];
-            Ok(vec![LMResponse {
-                text: response.clone(),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(response.clone(), None)])
         }
 
         fn model(&self) -> &str {

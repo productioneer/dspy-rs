@@ -155,10 +155,7 @@ mod tests {
             _messages: &[Message],
             _config: &LMConfig,
         ) -> dspy_core::Result<Vec<LMResponse>> {
-            Ok(vec![LMResponse {
-                text: "[[ ## answer ## ]]\n42\n[[ ## completed ## ]]".to_string(),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new("[[ ## answer ## ]]\n42\n[[ ## completed ## ]]", None)])
         }
         fn model(&self) -> &str {
             "mock"

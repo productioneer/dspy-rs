@@ -139,10 +139,7 @@ mod tests {
     #[async_trait]
     impl LM for FixedLM {
         async fn call(&self, _messages: &[Message], _config: &LMConfig) -> Result<Vec<LMResponse>> {
-            Ok(vec![LMResponse {
-                text: format!("[[ ## answer ## ]]\n{}", self.answer),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(format!("[[ ## answer ## ]]\n{}", self.answer), None)])
         }
         fn model(&self) -> &str {
             "fixed"

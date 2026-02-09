@@ -248,10 +248,7 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push(messages.to_vec());
-            Ok(vec![LMResponse {
-                text: self.response.clone(),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(self.response.clone(), None)])
         }
         fn model(&self) -> &str {
             "mock"

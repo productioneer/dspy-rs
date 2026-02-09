@@ -220,10 +220,7 @@ mod tests {
             _messages: &[Message],
             _config: &LMConfig,
         ) -> dspy_core::Result<Vec<LMResponse>> {
-            Ok(vec![LMResponse {
-                text: format!("[[ ## answer ## ]]\n{}", self.answer),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(format!("[[ ## answer ## ]]\n{}", self.answer), None)])
         }
         fn model(&self) -> &str {
             "mock"

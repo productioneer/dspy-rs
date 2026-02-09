@@ -187,10 +187,7 @@ mod tests {
             } else {
                 "I don't know"
             };
-            Ok(vec![LMResponse {
-                text: format!("[[ ## answer ## ]]\n{}", answer),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new(format!("[[ ## answer ## ]]\n{}", answer), None)])
         }
 
         fn model(&self) -> &str {

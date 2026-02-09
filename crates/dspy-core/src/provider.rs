@@ -188,10 +188,7 @@ mod tests {
             _messages: &[Message],
             _config: &LMConfig,
         ) -> crate::Result<Vec<LMResponse>> {
-            Ok(vec![LMResponse {
-                text: "mock".to_string(),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new("mock", None)])
         }
         fn model(&self) -> &str {
             &self.model

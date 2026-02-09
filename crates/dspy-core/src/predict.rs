@@ -224,10 +224,7 @@ mod tests {
             Ok(self
                 .responses
                 .iter()
-                .map(|text| LMResponse {
-                    text: text.clone(),
-                    usage: None,
-                })
+                .map(|text| LMResponse::new(text.clone(), None))
                 .collect())
         }
 
@@ -394,10 +391,7 @@ mod tests {
     impl LM for ConfigCaptureLM {
         async fn call(&self, _messages: &[Message], config: &LMConfig) -> Result<Vec<LMResponse>> {
             *self.received_config.lock().unwrap() = Some(config.clone());
-            Ok(vec![LMResponse {
-                text: "[[ ## answer ## ]]\ntest".to_string(),
-                usage: None,
-            }])
+            Ok(vec![LMResponse::new("[[ ## answer ## ]]\ntest", None)])
         }
         fn model(&self) -> &str {
             "mock"

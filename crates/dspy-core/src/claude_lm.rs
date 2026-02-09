@@ -201,7 +201,7 @@ impl LM for ClaudeLM {
 
         for _ in 0..n {
             let text = self.invoke_once(messages, config).await?;
-            results.push(LMResponse { text, usage: None });
+            results.push(LMResponse::new(text, None));
         }
 
         Ok(results)
