@@ -1,7 +1,7 @@
 //! ClaudeLM — Routes DSPy calls through the Claude CLI.
 //!
 //! Uses `claude -p --print --output-format json` to invoke the Claude API
-//! via an authenticated Claude Max subscription. Temperature is controlled
+//! via an authenticated Claude CLI session. Temperature is controlled
 //! via the CLAUDE_CODE_EXTRA_BODY environment variable.
 
 use std::sync::Arc;

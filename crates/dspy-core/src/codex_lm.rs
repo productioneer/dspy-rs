@@ -1,7 +1,7 @@
 //! CodexLM — Routes DSPy calls through the Codex CLI.
 //!
 //! Uses `codex exec --json` to invoke the OpenAI API via an authenticated
-//! ChatGPT Pro subscription. Temperature is NOT supported by the Codex CLI;
+//! an authenticated Codex CLI session. Temperature is NOT supported by the Codex CLI;
 //! a one-time warning is logged when requested.
 
 use std::sync::atomic::{AtomicBool, Ordering};
