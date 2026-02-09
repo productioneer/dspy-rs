@@ -1,8 +1,10 @@
 # dspy-rs
 
-Full-parity Rust port of [DSPy](https://github.com/stanfordnlp/dspy) v3.1.3 — the framework for programming, not prompting, language models.
+> **v0.1 — Experimental Release**
+>
+> This is pre-production software. It has been tested (367 tests passing) but has not been battle-tested in production environments. Do not use blindly in production. Verify any behavior you depend on with your own eyes. We tried our best, but we make no guarantees that everything works correctly. APIs may change without notice.
 
-**367 tests passing.**
+Full-parity Rust port of [DSPy](https://github.com/stanfordnlp/dspy) v3.1.3 — the framework for programming, not prompting, language models.
 
 ## What's Included
 
