@@ -69,7 +69,6 @@ impl SandboxedInterpreter {
         PathBuf::from(manifest_dir)
             .join("..")
             .join("..")
-            .join("..")
             .join("shared")
             .join("interpreter")
             .join("sandbox-runner.ts")

@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "pyodide": "npm:pyodide@^0.29.3"
+  }
+}
